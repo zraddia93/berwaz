@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - برواز</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: #000000; }
+        .glass { background: rgba(255, 217, 0, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 217, 0, 0.1); }
+        .shimmer { background: linear-gradient(90deg, rgba(255,217,0,0) 0%, rgba(255,217,0,0.1) 50%, rgba(255,217,0,0) 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ffd900; }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#fffce0', 100: '#fff9b3', 500: '#ffd900', 600: '#e6c300', 700: '#ccad00' },
+                        dark: { 800: '#0a0a0a', 900: '#000000' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // Simulated AI Analysis Functions
+        const analyzeImage = async (file) => {
+            // Simulate AI analysis delay
+            await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+
+            // Mock AI-generated tags based on filename or random selection
+            const possibleTags = {
+                mood: ['mysterious', 'epic', 'dramatic', 'peaceful', 'intense', 'melancholic', 'hopeful'],
+                lighting: ['natural', 'neon', 'golden-hour', 'low-key', 'high-key', 'silhouette', 'chiaroscuro'],
+                composition: ['wide-shot', 'close-up', 'medium-shot', 'extreme-wide', 'over-shoulder', 'dutch-angle'],
+                setting: ['urban', 'nature', 'interior', 'desert', 'ocean', 'forest', 'industrial'],
+                color: ['warm', 'cool', 'monochrome', 'vibrant', 'muted', 'neon', 'earth-tones']
+            };
+
+            const selectRandom = (arr, count) => {
+                const shuffled = [...arr].sort(() => 0.5 - Math.random());
+                return shuffled.slice(0, count);
+            };
+
+            // Generate random color palette
+            const generateColorPalette = () => {
+                const colors = [];
+                for (let i = 0; i < 4; i++) {
+                    const hue = Math.floor(Math.random() * 360);
+                    const sat = 50 + Math.floor(Math.random() * 50);
+                    const light = 30 + Math.floor(Math.random() * 40);
+                    colors.push(`hsl(${hue}, ${sat}%, ${light}%)`);
+                }
+                return colors;
+            };
+
+            return {
+                tags: [
+                    ...selectRandom(possibleTags.mood, 2),
+                    ...selectRandom(possibleTags.lighting, 1),
+                    ...selectRandom(possibleTags.composition, 1),
+                    ...selectRandom(possibleTags.setting, 1),
+                    ...selectRandom(possibleTags.color, 1)
+                ],
+                mood: selectRandom(possibleTags.mood, 2),
+                lighting: selectRandom(possibleTags.lighting, 2),
+                composition: selectRandom(possibleTags.composition, 1)[0],
+                colorPalette: generateColorPalette(),
+                aiDescription: `A ${selectRandom(possibleTags.mood, 1)[0]} scene with ${selectRandom(possibleTags.lighting, 1)[0]} lighting, captured in a ${selectRandom(possibleTags.composition, 1)[0]} composition.`,
+                confidence: 0.85 + Math.random() * 0.14
+            };
+        };
+
+        // Icons
+        const Icons = {
+            Upload: () => (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            ),
+            Grid: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+            ),
+            List: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+            ),
+            Trash: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            ),
+            Edit: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+            ),
+            X: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            ),
+            Check: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+            ),
+            Sparkles: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+            ),
+            Back: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            ),
+            Download: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            ),
+            Settings: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            )
+        };
+
+        // Sidebar Component
+        const Sidebar = ({ activeTab, setActiveTab }) => {
+            const tabs = [
+                { id: 'upload', label: 'Upload Frames', icon: Icons.Upload },
+                { id: 'library', label: 'Manage Library', icon: Icons.Grid },
+                { id: 'settings', label: 'Settings', icon: Icons.Settings }
+            ];
+
+            return (
+                <aside className="w-64 glass h-screen sticky top-0 flex flex-col">
+                    <div className="p-6 border-b border-white/10">
+                        <a href="../index.html" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4">
+                            <Icons.Back />
+                            <span className="text-sm">Back to Site</span>
+                        </a>
+                        <div className="flex items-center gap-3">
+                            <svg width="36" height="24" viewBox="0 0 640 388" fill="none">
+                                <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
+                                <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
+                                <rect x="295" y="340" width="50" height="50" transform="rotate(45 320 365)" fill="#ffd900"/>
+                            </svg>
+                            <div>
+                                <h1 className="font-bold text-primary-500" style={{fontFamily: "'Noto Kufi Arabic', sans-serif"}}>برواز</h1>
+                                <p className="text-xs text-gray-400">Admin Panel</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <nav className="flex-1 p-4">
+                        <ul className="space-y-2">
+                            {tabs.map(tab => (
+                                <li key={tab.id}>
+                                    <button
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                                            activeTab === tab.id
+                                                ? 'bg-primary-500/20 text-primary-400'
+                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                        }`}
+                                    >
+                                        <tab.icon />
+                                        <span className="text-sm font-medium">{tab.label}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+
+                    <div className="p-4 border-t border-white/10">
+                        <div className="bg-gradient-to-r from-primary-500/20 to-primary-700/20 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Icons.Sparkles />
+                                <span className="text-sm font-medium">AI Analysis</span>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                                Frames are automatically analyzed for mood, lighting, and composition.
+                            </p>
+                        </div>
+                    </div>
+                </aside>
+            );
+        };
+
+        // Upload Component
+        const UploadTab = ({ frames, setFrames }) => {
+            const [dragActive, setDragActive] = useState(false);
+            const [uploads, setUploads] = useState([]);
+            const fileInputRef = useRef(null);
+
+            const handleDrag = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.type === "dragenter" || e.type === "dragover") {
+                    setDragActive(true);
+                } else if (e.type === "dragleave") {
+                    setDragActive(false);
+                }
+            };
+
+            const processFiles = async (files) => {
+                const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+
+                const newUploads = imageFiles.map(file => ({
+                    id: Math.random().toString(36).substr(2, 9),
+                    file,
+                    name: file.name,
+                    size: file.size,
+                    preview: URL.createObjectURL(file),
+                    status: 'pending',
+                    progress: 0,
+                    analysis: null,
+                    metadata: {
+                        title: file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, ' '),
+                        source: '',
+                        year: new Date().getFullYear(),
+                        director: '',
+                        cinematographer: ''
+                    }
+                }));
+
+                setUploads(prev => [...prev, ...newUploads]);
+
+                // Process each upload
+                for (const upload of newUploads) {
+                    setUploads(prev => prev.map(u =>
+                        u.id === upload.id ? { ...u, status: 'analyzing', progress: 30 } : u
+                    ));
+
+                    try {
+                        const analysis = await analyzeImage(upload.file);
+
+                        setUploads(prev => prev.map(u =>
+                            u.id === upload.id
+                                ? { ...u, status: 'complete', progress: 100, analysis }
+                                : u
+                        ));
+                    } catch (error) {
+                        setUploads(prev => prev.map(u =>
+                            u.id === upload.id
+                                ? { ...u, status: 'error', progress: 0 }
+                                : u
+                        ));
+                    }
+                }
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragActive(false);
+
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processFiles(e.dataTransfer.files);
+                }
+            };
+
+            const handleFileInput = (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    processFiles(e.target.files);
+                }
+            };
+
+            const updateUploadMetadata = (id, field, value) => {
+                setUploads(prev => prev.map(u =>
+                    u.id === id ? { ...u, metadata: { ...u.metadata, [field]: value } } : u
+                ));
+            };
+
+            const removeUpload = (id) => {
+                setUploads(prev => prev.filter(u => u.id !== id));
+            };
+
+            const saveToLibrary = (upload) => {
+                const newFrame = {
+                    id: `frame-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    filename: upload.name,
+                    title: upload.metadata.title,
+                    source: upload.metadata.source || 'Unknown',
+                    sourceType: 'movie',
+                    year: parseInt(upload.metadata.year) || new Date().getFullYear(),
+                    director: upload.metadata.director || 'Unknown',
+                    cinematographer: upload.metadata.cinematographer || 'Unknown',
+                    tags: upload.analysis?.tags || [],
+                    mood: upload.analysis?.mood || [],
+                    lighting: upload.analysis?.lighting || [],
+                    colorPalette: upload.analysis?.colorPalette || [],
+                    dominantColors: [],
+                    composition: upload.analysis?.composition || 'wide-shot',
+                    aspectRatio: '16:9',
+                    aiDescription: upload.analysis?.aiDescription || '',
+                    thumbnail: upload.preview,
+                    downloads: 0,
+                    uploadedAt: new Date().toISOString()
+                };
+
+                setFrames(prev => [...prev, newFrame]);
+                removeUpload(upload.id);
+            };
+
+            const saveAllToLibrary = () => {
+                const completedUploads = uploads.filter(u => u.status === 'complete');
+                completedUploads.forEach(upload => saveToLibrary(upload));
+            };
+
+            return (
+                <div className="p-8">
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold mb-2">Upload Frames</h2>
+                        <p className="text-gray-400">
+                            Drop images here or click to browse. AI will automatically analyze each frame.
+                        </p>
+                    </div>
+
+                    {/* Drop Zone */}
+                    <div
+                        className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
+                            dragActive
+                                ? 'border-primary-500 bg-primary-500/10'
+                                : 'border-white/20 hover:border-white/40 hover:bg-white/5'
+                        }`}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleFileInput}
+                            className="hidden"
+                        />
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-20 h-20 rounded-2xl bg-primary-500/20 flex items-center justify-center">
+                                <Icons.Upload />
+                            </div>
+                            <div>
+                                <p className="text-xl font-medium text-white">Drop frames here</p>
+                                <p className="text-gray-400">or click to browse</p>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <Icons.Sparkles />
+                                <span>AI will automatically tag and analyze your uploads</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Upload Queue */}
+                    {uploads.length > 0 && (
+                        <div className="mt-8">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold">Upload Queue ({uploads.length})</h3>
+                                {uploads.some(u => u.status === 'complete') && (
+                                    <button
+                                        onClick={saveAllToLibrary}
+                                        className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-sm font-medium transition-colors"
+                                    >
+                                        Save All to Library
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="space-y-4">
+                                {uploads.map(upload => (
+                                    <div key={upload.id} className="glass rounded-xl p-4">
+                                        <div className="flex gap-4">
+                                            {/* Preview */}
+                                            <div className="w-32 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                                                <img
+                                                    src={upload.preview}
+                                                    alt={upload.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+
+                                            {/* Details */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div>
+                                                        <input
+                                                            type="text"
+                                                            value={upload.metadata.title}
+                                                            onChange={(e) => updateUploadMetadata(upload.id, 'title', e.target.value)}
+                                                            className="bg-transparent text-white font-medium focus:outline-none focus:border-b focus:border-primary-500"
+                                                        />
+                                                        <p className="text-xs text-gray-500">
+                                                            {(upload.size / 1024 / 1024).toFixed(2)} MB
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {upload.status === 'analyzing' && (
+                                                            <span className="flex items-center gap-1 text-xs text-primary-400 animate-pulse">
+                                                                <Icons.Sparkles />
+                                                                Analyzing...
+                                                            </span>
+                                                        )}
+                                                        {upload.status === 'complete' && (
+                                                            <span className="flex items-center gap-1 text-xs text-green-400">
+                                                                <Icons.Check />
+                                                                Ready
+                                                            </span>
+                                                        )}
+                                                        <button
+                                                            onClick={() => removeUpload(upload.id)}
+                                                            className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                                                        >
+                                                            <Icons.X />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                {upload.status === 'analyzing' && (
+                                                    <div className="h-1 bg-white/10 rounded-full overflow-hidden mb-3">
+                                                        <div
+                                                            className="h-full bg-primary-500 shimmer transition-all"
+                                                            style={{ width: `${upload.progress}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* Metadata Inputs */}
+                                                {upload.status === 'complete' && (
+                                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Source (e.g., Movie name)"
+                                                            value={upload.metadata.source}
+                                                            onChange={(e) => updateUploadMetadata(upload.id, 'source', e.target.value)}
+                                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Year"
+                                                            value={upload.metadata.year}
+                                                            onChange={(e) => updateUploadMetadata(upload.id, 'year', e.target.value)}
+                                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Director"
+                                                            value={upload.metadata.director}
+                                                            onChange={(e) => updateUploadMetadata(upload.id, 'director', e.target.value)}
+                                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Cinematographer"
+                                                            value={upload.metadata.cinematographer}
+                                                            onChange={(e) => updateUploadMetadata(upload.id, 'cinematographer', e.target.value)}
+                                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* AI Tags */}
+                                                {upload.analysis && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        <span className="text-xs text-gray-500 mr-1">AI Tags:</span>
+                                                        {upload.analysis.tags.map(tag => (
+                                                            <span
+                                                                key={tag}
+                                                                className="px-2 py-0.5 bg-primary-500/20 text-primary-300 rounded text-xs"
+                                                            >
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Save Button */}
+                                                {upload.status === 'complete' && (
+                                                    <button
+                                                        onClick={() => saveToLibrary(upload)}
+                                                        className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium transition-colors"
+                                                    >
+                                                        Save to Library
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Library Management Component
+        const LibraryTab = ({ frames, setFrames }) => {
+            const [searchQuery, setSearchQuery] = useState('');
+            const [selectedFrames, setSelectedFrames] = useState([]);
+            const [editingFrame, setEditingFrame] = useState(null);
+
+            const filteredFrames = frames.filter(frame =>
+                frame.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                frame.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                frame.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+
+            const toggleSelect = (id) => {
+                setSelectedFrames(prev =>
+                    prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                );
+            };
+
+            const deleteSelected = () => {
+                setFrames(prev => prev.filter(f => !selectedFrames.includes(f.id)));
+                setSelectedFrames([]);
+            };
+
+            const updateFrame = (id, updates) => {
+                setFrames(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+            };
+
+            return (
+                <div className="p-8">
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold mb-2">Manage Library</h2>
+                        <p className="text-gray-400">
+                            View, edit, and organize your frame collection.
+                        </p>
+                    </div>
+
+                    {/* Search & Actions */}
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="flex-1 relative">
+                            <input
+                                type="text"
+                                placeholder="Search frames..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary-500"
+                            />
+                        </div>
+                        {selectedFrames.length > 0 && (
+                            <button
+                                onClick={deleteSelected}
+                                className="flex items-center gap-2 px-4 py-3 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl transition-colors"
+                            >
+                                <Icons.Trash />
+                                Delete ({selectedFrames.length})
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4 mb-8">
+                        <div className="glass rounded-xl p-4">
+                            <p className="text-3xl font-bold text-white">{frames.length}</p>
+                            <p className="text-sm text-gray-400">Total Frames</p>
+                        </div>
+                        <div className="glass rounded-xl p-4">
+                            <p className="text-3xl font-bold text-white">
+                                {new Set(frames.flatMap(f => f.tags)).size}
+                            </p>
+                            <p className="text-sm text-gray-400">Unique Tags</p>
+                        </div>
+                        <div className="glass rounded-xl p-4">
+                            <p className="text-3xl font-bold text-white">
+                                {frames.reduce((acc, f) => acc + (f.downloads || 0), 0)}
+                            </p>
+                            <p className="text-sm text-gray-400">Total Downloads</p>
+                        </div>
+                    </div>
+
+                    {/* Frame List */}
+                    <div className="space-y-3">
+                        {filteredFrames.map(frame => (
+                            <div
+                                key={frame.id}
+                                className={`glass rounded-xl p-4 transition-all ${
+                                    selectedFrames.includes(frame.id) ? 'ring-2 ring-primary-500' : ''
+                                }`}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedFrames.includes(frame.id)}
+                                        onChange={() => toggleSelect(frame.id)}
+                                        className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500"
+                                    />
+
+                                    <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                                        <img
+                                            src={frame.thumbnail}
+                                            alt={frame.title}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-medium text-white truncate">{frame.title}</h4>
+                                        <p className="text-sm text-gray-400">{frame.source} ({frame.year})</p>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {frame.tags.slice(0, 4).map(tag => (
+                                                <span key={tag} className="px-2 py-0.5 bg-white/5 text-gray-400 rounded text-xs">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-500">
+                                            {frame.downloads || 0} downloads
+                                        </span>
+                                        <button
+                                            onClick={() => setEditingFrame(frame)}
+                                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                        >
+                                            <Icons.Edit />
+                                        </button>
+                                        <button
+                                            onClick={() => setFrames(prev => prev.filter(f => f.id !== frame.id))}
+                                            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        >
+                                            <Icons.Trash />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {filteredFrames.length === 0 && (
+                        <div className="text-center py-16">
+                            <p className="text-gray-400">No frames found</p>
+                        </div>
+                    )}
+
+                    {/* Edit Modal */}
+                    {editingFrame && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                            <div className="glass rounded-2xl max-w-lg w-full p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-xl font-bold">Edit Frame</h3>
+                                    <button onClick={() => setEditingFrame(null)} className="p-2 hover:bg-white/10 rounded-lg">
+                                        <Icons.X />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Title</label>
+                                        <input
+                                            type="text"
+                                            value={editingFrame.title}
+                                            onChange={(e) => setEditingFrame({ ...editingFrame, title: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Source</label>
+                                            <input
+                                                type="text"
+                                                value={editingFrame.source}
+                                                onChange={(e) => setEditingFrame({ ...editingFrame, source: e.target.value })}
+                                                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Year</label>
+                                            <input
+                                                type="number"
+                                                value={editingFrame.year}
+                                                onChange={(e) => setEditingFrame({ ...editingFrame, year: parseInt(e.target.value) })}
+                                                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Tags (comma separated)</label>
+                                        <input
+                                            type="text"
+                                            value={editingFrame.tags.join(', ')}
+                                            onChange={(e) => setEditingFrame({
+                                                ...editingFrame,
+                                                tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
+                                            })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-6">
+                                    <button
+                                        onClick={() => setEditingFrame(null)}
+                                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            updateFrame(editingFrame.id, editingFrame);
+                                            setEditingFrame(null);
+                                        }}
+                                        className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors"
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Settings Component
+        const SettingsTab = () => {
+            const [settings, setSettings] = useState({
+                siteName: 'FrameVault',
+                siteDescription: 'Visual Reference Library',
+                aiProvider: 'simulated',
+                autoTag: true,
+                allowDownloads: true
+            });
+
+            return (
+                <div className="p-8">
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold mb-2">Settings</h2>
+                        <p className="text-gray-400">
+                            Configure your FrameVault instance.
+                        </p>
+                    </div>
+
+                    <div className="max-w-2xl space-y-6">
+                        {/* Site Settings */}
+                        <div className="glass rounded-xl p-6">
+                            <h3 className="text-lg font-semibold mb-4">Site Settings</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Site Name</label>
+                                    <input
+                                        type="text"
+                                        value={settings.siteName}
+                                        onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Description</label>
+                                    <input
+                                        type="text"
+                                        value={settings.siteDescription}
+                                        onChange={(e) => setSettings({ ...settings, siteDescription: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* AI Settings */}
+                        <div className="glass rounded-xl p-6">
+                            <h3 className="text-lg font-semibold mb-4">AI Configuration</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">AI Provider</label>
+                                    <select
+                                        value={settings.aiProvider}
+                                        onChange={(e) => setSettings({ ...settings, aiProvider: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                                    >
+                                        <option value="simulated">Simulated (Demo)</option>
+                                        <option value="openai">OpenAI Vision</option>
+                                        <option value="google">Google Cloud Vision</option>
+                                        <option value="anthropic">Anthropic Claude</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium">Auto-tag uploads</p>
+                                        <p className="text-sm text-gray-400">Automatically analyze and tag new frames</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setSettings({ ...settings, autoTag: !settings.autoTag })}
+                                        className={`w-12 h-6 rounded-full transition-colors ${
+                                            settings.autoTag ? 'bg-primary-500' : 'bg-gray-600'
+                                        }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full bg-white transform transition-transform ${
+                                            settings.autoTag ? 'translate-x-6' : 'translate-x-0.5'
+                                        }`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Access Settings */}
+                        <div className="glass rounded-xl p-6">
+                            <h3 className="text-lg font-semibold mb-4">Access Settings</h3>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-medium">Allow Downloads</p>
+                                    <p className="text-sm text-gray-400">Let visitors download frames</p>
+                                </div>
+                                <button
+                                    onClick={() => setSettings({ ...settings, allowDownloads: !settings.allowDownloads })}
+                                    className={`w-12 h-6 rounded-full transition-colors ${
+                                        settings.allowDownloads ? 'bg-primary-500' : 'bg-gray-600'
+                                    }`}
+                                >
+                                    <div className={`w-5 h-5 rounded-full bg-white transform transition-transform ${
+                                        settings.allowDownloads ? 'translate-x-6' : 'translate-x-0.5'
+                                    }`} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Export/Import */}
+                        <div className="glass rounded-xl p-6">
+                            <h3 className="text-lg font-semibold mb-4">Data Management</h3>
+                            <div className="flex gap-4">
+                                <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                                    <Icons.Download />
+                                    Export Data
+                                </button>
+                                <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                                    <Icons.Upload />
+                                    Import Data
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                            <p className="text-sm text-yellow-200">
+                                <strong>Note:</strong> This is a frontend demo. Settings are stored in memory and will reset on page reload.
+                                Connect to a backend to persist settings.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main Admin App
+        const AdminApp = () => {
+            const [activeTab, setActiveTab] = useState('upload');
+            const [frames, setFrames] = useState([
+                {
+                    id: "demo-001",
+                    filename: "blade-runner-neon.jpg",
+                    title: "Neon City Night",
+                    source: "Blade Runner 2049",
+                    year: 2017,
+                    director: "Denis Villeneuve",
+                    cinematographer: "Roger Deakins",
+                    tags: ["neon", "cyberpunk", "night", "urban", "atmospheric"],
+                    mood: ["mysterious", "melancholic"],
+                    lighting: ["neon", "low-key"],
+                    colorPalette: ["#ff00ff", "#00ffff", "#1a1a2e"],
+                    composition: "wide-shot",
+                    aspectRatio: "2.39:1",
+                    aiDescription: "A rain-soaked urban landscape bathed in neon lights.",
+                    downloads: 245,
+                    thumbnail: "https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2?w=400&h=225&fit=crop"
+                }
+            ]);
+
+            return (
+                <div className="min-h-screen flex">
+                    <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <main className="flex-1 overflow-auto">
+                        {activeTab === 'upload' && <UploadTab frames={frames} setFrames={setFrames} />}
+                        {activeTab === 'library' && <LibraryTab frames={frames} setFrames={setFrames} />}
+                        {activeTab === 'settings' && <SettingsTab />}
+                    </main>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<AdminApp />);
+    </script>
+</body>
+</html>

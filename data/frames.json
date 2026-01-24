@@ -1,0 +1,82 @@
+{
+  "frames": [
+    {
+      "id": "demo-001",
+      "filename": "blade-runner-neon.jpg",
+      "title": "Neon City Night",
+      "source": "Blade Runner 2049",
+      "sourceType": "movie",
+      "year": 2017,
+      "director": "Denis Villeneuve",
+      "cinematographer": "Roger Deakins",
+      "tags": ["neon", "cyberpunk", "night", "urban", "rain", "atmospheric", "sci-fi", "moody"],
+      "mood": ["mysterious", "melancholic", "futuristic"],
+      "lighting": ["neon", "low-key", "artificial"],
+      "colorPalette": ["#ff00ff", "#00ffff", "#1a1a2e", "#ff6b35"],
+      "dominantColors": ["magenta", "cyan", "dark-blue"],
+      "composition": "wide-shot",
+      "aspectRatio": "2.39:1",
+      "timestamp": "01:23:45",
+      "aiDescription": "A rain-soaked urban landscape bathed in neon lights, featuring towering buildings and holographic advertisements against a dark sky.",
+      "embeddings": [0.12, 0.45, 0.78, 0.23, 0.56, 0.89, 0.34, 0.67],
+      "uploadedAt": "2024-01-15T10:30:00Z",
+      "downloads": 245
+    },
+    {
+      "id": "demo-002",
+      "filename": "dune-desert.jpg",
+      "title": "Desert Horizon",
+      "source": "Dune",
+      "sourceType": "movie",
+      "year": 2021,
+      "director": "Denis Villeneuve",
+      "cinematographer": "Greig Fraser",
+      "tags": ["desert", "sand", "golden", "epic", "landscape", "minimalist", "warm"],
+      "mood": ["epic", "contemplative", "vast"],
+      "lighting": ["natural", "golden-hour", "harsh"],
+      "colorPalette": ["#d4a574", "#8b7355", "#f5deb3", "#654321"],
+      "dominantColors": ["sand", "brown", "gold"],
+      "composition": "extreme-wide",
+      "aspectRatio": "2.39:1",
+      "timestamp": "00:45:12",
+      "aiDescription": "Vast desert dunes stretching to the horizon under a golden sky, with tiny silhouettes emphasizing the immense scale.",
+      "embeddings": [0.89, 0.12, 0.34, 0.67, 0.45, 0.23, 0.78, 0.56],
+      "uploadedAt": "2024-01-16T14:20:00Z",
+      "downloads": 189
+    },
+    {
+      "id": "demo-003",
+      "filename": "joker-stairs.jpg",
+      "title": "Stairway Dance",
+      "source": "Joker",
+      "sourceType": "movie",
+      "year": 2019,
+      "director": "Todd Phillips",
+      "cinematographer": "Lawrence Sher",
+      "tags": ["stairs", "urban", "gritty", "character", "dramatic", "iconic"],
+      "mood": ["dramatic", "triumphant", "dark"],
+      "lighting": ["overcast", "natural", "diffused"],
+      "colorPalette": ["#2d4a3e", "#8b9dc3", "#4a4a4a", "#c41e3a"],
+      "dominantColors": ["teal", "grey", "red"],
+      "composition": "medium-shot",
+      "aspectRatio": "1.85:1",
+      "timestamp": "01:45:30",
+      "aiDescription": "A figure in a colorful suit descending concrete stairs in a gritty urban environment, framed by weathered buildings.",
+      "embeddings": [0.34, 0.78, 0.12, 0.56, 0.89, 0.45, 0.23, 0.67],
+      "uploadedAt": "2024-01-17T09:15:00Z",
+      "downloads": 312
+    }
+  ],
+  "tags": {
+    "genres": ["sci-fi", "drama", "action", "horror", "romance", "comedy", "thriller", "documentary"],
+    "moods": ["mysterious", "melancholic", "epic", "romantic", "tense", "peaceful", "dramatic", "whimsical"],
+    "lighting": ["natural", "neon", "golden-hour", "low-key", "high-key", "silhouette", "chiaroscuro"],
+    "compositions": ["wide-shot", "close-up", "medium-shot", "extreme-wide", "over-shoulder", "pov", "two-shot"],
+    "settings": ["urban", "nature", "interior", "desert", "ocean", "forest", "space", "industrial"]
+  },
+  "metadata": {
+    "totalFrames": 3,
+    "lastUpdated": "2024-01-17T09:15:00Z",
+    "version": "1.0.0"
+  }
+}

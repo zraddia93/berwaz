@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>برواز — Cinematic Reference Library</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="frames-data.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Arabic Font */
+        @font-face {
+            font-family: 'HT Moshreq Pro';
+            src: url('HTMoshreqPro-Regular.otf') format('opentype');
+            font-weight: 400;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'HT Moshreq Pro';
+            src: url('HTMoshreqPro-Bold.otf') format('opentype');
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111111;
+            --bg-elevated: #161616;
+            --text-primary: #ffd900;
+            --text-secondary: #cca800;
+            --text-tertiary: #997e00;
+            --accent: #ffd900;
+            --accent-dim: rgba(255,217,0,0.1);
+            --border: rgba(255,217,0,0.12);
+            --border-hover: rgba(255,217,0,0.25);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        /* Improve touch scrolling on mobile */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        .slide-up { animation: slideUp 0.6s ease-out; }
+        .scale-in { animation: scaleIn 0.3s ease-out; }
+
+        /* Typography */
+        .font-arabic { font-family: 'HT Moshreq Pro', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .text-xs { font-size: 11px; letter-spacing: 0.05em; }
+        .text-sm { font-size: 13px; }
+        .text-base { font-size: 15px; }
+        .text-lg { font-size: 18px; }
+        .text-xl { font-size: 24px; }
+        .text-2xl { font-size: 32px; }
+        .text-3xl { font-size: 48px; }
+        .uppercase { text-transform: uppercase; }
+        .tracking-wide { letter-spacing: 0.1em; }
+        .tracking-wider { letter-spacing: 0.2em; }
+
+        /* Utility Classes */
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .gap-1 { gap: 4px; }
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .gap-4 { gap: 16px; }
+        .gap-6 { gap: 24px; }
+
+        /* Shimmer Loading */
+        .shimmer {
+            background: linear-gradient(90deg, var(--bg-tertiary) 0%, var(--bg-elevated) 50%, var(--bg-tertiary) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+        /*
+         * ═══════════════════════════════════════════════════════════════
+         * HOW TO ADD YOUR FRAMES/GIFS:
+         * ═══════════════════════════════════════════════════════════════
+         *
+         * 1. Place your images/GIFs in the "content/" folder
+         * 2. Edit the "content/frames.json" file to add entries
+         *
+         * FRAME STRUCTURE (in frames.json):
+         * {
+         *     "id": "1",                   // Unique identifier
+         *     "title": "Frame Title",       // Display title
+         *     "source": "Movie Name",       // Source film/show
+         *     "year": 2024,                 // Year
+         *     "director": "Director Name",  // Director
+         *     "dp": "DP Name",              // Cinematographer
+         *     "tags": ["tag1", "tag2"],     // Searchable tags
+         *     "mood": "Mood",               // e.g., "Mysterious", "Epic"
+         *     "lighting": "Lighting Type",  // e.g., "Natural", "Neon"
+         *     "color": ["#hex1", "#hex2"],  // Color palette (3-4 colors)
+         *     "aspect": "2.39:1",           // Aspect ratio
+         *     "file": "your-file.jpg"       // Filename in content/ folder
+         * }
+         *
+         * FOR GIFS: Name file with .gif extension - GIFs will autoplay
+         * and show a "GIF" badge automatically.
+         * ═══════════════════════════════════════════════════════════════
+         */
+
+        // Content folder path
+        const CONTENT_PATH = 'content/';
+
+        // FRAMES_DATA is loaded from external frames-data.js file
+
+        const FILTER_TAGS = {
+            mood: ["Mysterious", "Epic", "Melancholic", "Intense", "Romantic", "Tense", "Nostalgic", "Contemplative"],
+            lighting: ["Natural", "Neon", "Golden Hour", "Low-Key", "High-Key", "Silhouette", "Practical"],
+            composition: ["Wide Shot", "Close-Up", "Medium Shot", "Extreme Wide", "Two-Shot", "POV"]
+        };
+
+        // Minimal Icon Components
+        const Icons = {
+            Search: () => (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+            ),
+            X: () => (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+            ),
+            Download: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            ),
+            Grid: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                </svg>
+            ),
+            Filter: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <line x1="4" y1="6" x2="20" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+                </svg>
+            ),
+            Sparkle: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>
+                </svg>
+            ),
+            External: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            ),
+            Similar: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>
+                </svg>
+            ),
+            User: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
+                </svg>
+            ),
+            Film: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="22" y2="16"/><line x1="6" y1="4" x2="6" y2="8"/><line x1="18" y1="4" x2="18" y2="8"/><line x1="6" y1="16" x2="6" y2="20"/><line x1="18" y1="16" x2="18" y2="20"/>
+                </svg>
+            )
+        };
+
+        // Directors list
+        const DIRECTORS = [
+            { name: "Abdullah Majed", nameAr: "عبدالله ماجد" },
+            { name: "Abdulrahman Elsingergy", nameAr: "عبدالرحمن السنجري" },
+            { name: "Malek Alhammami", nameAr: "مالك الحمامي" },
+            { name: "Mohammad Almulla", nameAr: "محمد الملا" }
+        ];
+
+        // Size Slider Component - Segmented Control Style
+        const SizeSlider = ({ size, setSize }) => {
+            const sizes = ['S', 'M', 'L'];
+
+            return (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: '8px',
+                    padding: '3px',
+                    border: '1px solid var(--border)'
+                }}>
+                    {sizes.map((s) => (
+                        <button
+                            key={s}
+                            onClick={() => setSize(s)}
+                            style={{
+                                padding: '6px 14px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                background: size === s ? 'var(--accent)' : 'transparent',
+                                color: size === s ? '#000000' : 'var(--text-secondary)'
+                            }}
+                        >
+                            {s}
+                        </button>
+                    ))}
+                </div>
+            );
+        };
+
+        // Minimal Header
+        const Header = ({ onSearch, searchQuery, setSearchQuery, showFilters, setShowFilters, onFilterByDirector, onShowAbout, onShowFeatured, frameSize, setFrameSize }) => {
+            const [focused, setFocused] = useState(false);
+            const [showDirectors, setShowDirectors] = useState(false);
+
+            return (
+                <header style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    background: 'rgba(0,0,0,0.85)',
+                    backdropFilter: 'blur(20px)',
+                    borderBottom: '1px solid var(--border)'
+                }}>
+                    <div style={{
+                        maxWidth: '1800px',
+                        margin: '0 auto',
+                        padding: '16px 24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '32px',
+                        direction: 'rtl'
+                    }}>
+                        {/* Logo */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <svg width="48" height="48" viewBox="0 0 700 450" fill="none">
+                                <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
+                                <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
+                                <rect x="295" y="340" width="50" height="50" transform="rotate(45 320 365)" fill="#ffd900"/>
+                            </svg>
+                            <span style={{
+                                fontSize: '24px',
+                                fontWeight: 600,
+                                fontFamily: "'HT Moshreq Pro', sans-serif",
+                                color: 'var(--accent)'
+                            }}>
+                                برواز
+                            </span>
+                        </div>
+
+                        {/* Search */}
+                        <div style={{
+                            flex: 1,
+                            maxWidth: '600px',
+                            position: 'relative'
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                left: '16px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: focused ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                transition: 'color 0.2s'
+                            }}>
+                                <Icons.Search />
+                            </div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onFocus={() => setFocused(true)}
+                                onBlur={() => setFocused(false)}
+                                onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+                                placeholder="Search frames, films, directors..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px 16px 12px 48px',
+                                    background: focused ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                                    border: `1px solid ${focused ? 'var(--border-hover)' : 'var(--border)'}`,
+                                    borderRadius: '8px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    transition: 'all 0.2s'
+                                }}
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '12px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text-tertiary)',
+                                        cursor: 'pointer',
+                                        padding: '4px'
+                                    }}
+                                >
+                                    <Icons.X />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Actions - RTL order: About, Directors, Featured Visuals, Filters */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'ltr' }}>
+                            {/* About Button */}
+                            <button
+                                onClick={onShowAbout}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 16px',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                About
+                            </button>
+
+                            {/* Directors Dropdown */}
+                            <div style={{ position: 'relative' }}>
+                                <button
+                                    onClick={() => setShowDirectors(!showDirectors)}
+                                    onBlur={() => setTimeout(() => setShowDirectors(false), 150)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '10px 16px',
+                                        background: showDirectors ? 'var(--accent)' : 'transparent',
+                                        color: showDirectors ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                                        border: `1px solid ${showDirectors ? 'var(--accent)' : 'var(--border)'}`,
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <Icons.User />
+                                    Directors
+                                </button>
+                                {showDirectors && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        marginTop: '8px',
+                                        background: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '8px',
+                                        padding: '8px 0',
+                                        minWidth: '220px',
+                                        zIndex: 200,
+                                        boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+                                    }}>
+                                        {DIRECTORS.map((director) => (
+                                            <button
+                                                key={director.name}
+                                                onClick={() => {
+                                                    onFilterByDirector(director.name);
+                                                    setShowDirectors(false);
+                                                }}
+                                                style={{
+                                                    display: 'block',
+                                                    width: '100%',
+                                                    padding: '12px 16px',
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '13px',
+                                                    textAlign: 'right',
+                                                    cursor: 'pointer',
+                                                    transition: 'background 0.2s',
+                                                    fontFamily: "'HT Moshreq Pro', sans-serif"
+                                                }}
+                                                onMouseEnter={(e) => e.target.style.background = 'var(--bg-tertiary)'}
+                                                onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                            >
+                                                <div style={{ fontWeight: 600 }}>{director.nameAr}</div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'Space Grotesk, sans-serif' }}>{director.name}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Featured Visuals Button */}
+                            <button
+                                onClick={onShowFeatured}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 16px',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <Icons.Sparkle />
+                                Featured Visuals
+                            </button>
+
+                            {/* Filters Button */}
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 16px',
+                                    background: showFilters ? 'var(--accent)' : 'transparent',
+                                    color: showFilters ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                                    border: `1px solid ${showFilters ? 'var(--accent)' : 'var(--border)'}`,
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <Icons.Filter />
+                                Filters
+                            </button>
+
+                            {/* Size Slider */}
+                            <SizeSlider size={frameSize} setSize={setFrameSize} />
+                        </div>
+                    </div>
+                </header>
+            );
+        };
+
+        // Filter Bar
+        const FilterBar = ({ activeTags, toggleTag, clearFilters }) => (
+            <div style={{
+                position: 'fixed',
+                top: '73px',
+                left: 0,
+                right: 0,
+                zIndex: 99,
+                background: 'rgba(0,0,0,0.95)',
+                borderBottom: '1px solid var(--border)',
+                padding: '20px 24px',
+                animation: 'slideUp 0.3s ease-out'
+            }}>
+                <div style={{ maxWidth: '1800px', margin: '0 auto' }}>
+                    {Object.entries(FILTER_TAGS).map(([category, tags]) => (
+                        <div key={category} style={{ marginBottom: '16px' }}>
+                            <div style={{
+                                fontSize: '10px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.15em',
+                                color: 'var(--text-tertiary)',
+                                marginBottom: '10px'
+                            }}>
+                                {category}
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {tags.map(tag => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => toggleTag(tag)}
+                                        style={{
+                                            padding: '8px 14px',
+                                            background: activeTags.includes(tag) ? 'var(--accent)' : 'transparent',
+                                            color: activeTags.includes(tag) ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                                            border: `1px solid ${activeTags.includes(tag) ? 'var(--accent)' : 'var(--border)'}`,
+                                            borderRadius: '100px',
+                                            cursor: 'pointer',
+                                            fontSize: '12px',
+                                            fontWeight: 500,
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        {tag}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    {activeTags.length > 0 && (
+                        <button
+                            onClick={clearFilters}
+                            style={{
+                                padding: '8px 14px',
+                                background: 'transparent',
+                                color: 'var(--text-tertiary)',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                marginTop: '8px'
+                            }}
+                        >
+                            Clear all filters
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+
+        // Frame Card - Cinematic Style
+        const FrameCard = ({ frame, index, onClick, size = 'M' }) => {
+            const [loaded, setLoaded] = useState(false);
+            const [hovered, setHovered] = useState(false);
+
+            // Check if media is a GIF
+            const isGif = frame.image?.toLowerCase().endsWith('.gif') || frame.type === 'gif';
+
+            // Height configurations for each size
+            const sizeConfig = {
+                S: [220, 260, 200, 280, 240, 220, 300, 230, 250, 210, 270, 240],
+                M: [320, 380, 300, 400, 350, 320, 420, 340, 370, 310, 390, 350],
+                L: [450, 520, 420, 560, 480, 450, 580, 470, 510, 430, 540, 480]
+            };
+
+            const heights = sizeConfig[size] || sizeConfig.M;
+            const height = heights[index % heights.length];
+
+            return (
+                <div
+                    onClick={() => onClick(frame)}
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
+                    style={{
+                        position: 'relative',
+                        height: `${height}px`,
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        background: 'var(--bg-secondary)',
+                        transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s',
+                        transform: hovered ? 'scale(1.02)' : 'scale(1)',
+                        boxShadow: hovered ? '0 20px 60px rgba(0,0,0,0.6)' : 'none',
+                        animation: 'fadeIn 0.4s ease-out',
+                        animationDelay: `${Math.min(index * 0.02, 0.5)}s`,
+                        animationFillMode: 'both'
+                    }}
+                >
+                    {/* Loading State */}
+                    {!loaded && (
+                        <div className="shimmer" style={{ position: 'absolute', inset: 0 }} />
+                    )}
+
+                    {/* Image/GIF - GIFs don't scale on hover to maintain smooth playback */}
+                    <img
+                        src={frame.image}
+                        alt={frame.title}
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={() => setLoaded(true)}
+                        onError={(e) => { e.target.style.display = 'none'; setLoaded(true); }}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            opacity: loaded ? 1 : 0,
+                            transition: isGif ? 'opacity 0.3s' : 'opacity 0.3s, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                            transform: (hovered && !isGif) ? 'scale(1.05)' : 'scale(1)',
+                            pointerEvents: 'none'
+                        }}
+                    />
+
+                </div>
+            );
+        };
+
+        // Frame Detail Modal
+        const FrameModal = ({ frame, onClose, onFindSimilar, onFilterByDirector, onFilterBySource }) => {
+            // Close on Escape key
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Escape') onClose();
+                };
+                document.addEventListener('keydown', handleKeyDown);
+                // Prevent body scroll when modal is open
+                document.body.style.overflow = 'hidden';
+                return () => {
+                    document.removeEventListener('keydown', handleKeyDown);
+                    document.body.style.overflow = '';
+                };
+            }, [onClose]);
+
+            if (!frame) return null;
+
+            const isGif = frame.image?.toLowerCase().endsWith('.gif') || frame.type === 'gif';
+
+            return (
+                <div
+                    onClick={onClose}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 200,
+                        background: 'rgba(0,0,0,0.95)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '40px',
+                        animation: 'fadeIn 0.3s ease-out'
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            maxWidth: '1400px',
+                            width: '100%',
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 380px',
+                            gap: '40px',
+                            animation: 'scaleIn 0.3s ease-out'
+                        }}
+                    >
+                        {/* Image/GIF */}
+                        <div style={{
+                            position: 'relative',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            background: 'var(--bg-secondary)'
+                        }}>
+                            <img
+                                src={frame.image}
+                                alt={frame.title}
+                                style={{
+                                    width: '100%',
+                                    height: 'auto',
+                                    display: 'block'
+                                }}
+                            />
+                            {/* Aspect ratio badge */}
+                            <div style={{
+                                position: 'absolute',
+                                top: '16px',
+                                left: '16px',
+                                padding: '6px 12px',
+                                background: 'rgba(0,0,0,0.7)',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontFamily: "'JetBrains Mono', monospace",
+                                letterSpacing: '0.05em'
+                            }}>
+                                {frame.aspect}
+                            </div>
+                        </div>
+
+                        {/* Details */}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            {/* Close button */}
+                            <button
+                                onClick={onClose}
+                                style={{
+                                    alignSelf: 'flex-end',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-tertiary)',
+                                    cursor: 'pointer',
+                                    padding: '8px',
+                                    marginBottom: '16px'
+                                }}
+                            >
+                                <Icons.X />
+                            </button>
+
+                            {/* Title & Source */}
+                            <h2 style={{
+                                fontSize: '28px',
+                                fontWeight: 600,
+                                letterSpacing: '-0.02em',
+                                marginBottom: '8px'
+                            }}>
+                                {frame.title}
+                            </h2>
+                            <p style={{
+                                fontSize: '16px',
+                                color: 'var(--text-secondary)',
+                                marginBottom: '32px'
+                            }}>
+                                <span
+                                    onClick={() => onFilterBySource(frame.source)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s',
+                                        borderBottom: '1px dashed var(--text-tertiary)'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
+                                    onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
+                                    title="View all frames from this project"
+                                >
+                                    {frame.source}
+                                </span>
+                                {' '}({frame.year})
+                            </p>
+
+                            {/* Metadata Grid */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                gap: '24px',
+                                marginBottom: '32px'
+                            }}>
+                                <div>
+                                    <div style={{
+                                        fontSize: '10px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.15em',
+                                        color: 'var(--text-tertiary)',
+                                        marginBottom: '6px'
+                                    }}>
+                                        Director
+                                    </div>
+                                    <div
+                                        onClick={() => onFilterByDirector(frame.director)}
+                                        style={{
+                                            fontSize: '14px',
+                                            cursor: 'pointer',
+                                            transition: 'color 0.2s',
+                                            borderBottom: '1px dashed var(--text-tertiary)',
+                                            display: 'inline-block'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
+                                        onMouseLeave={(e) => e.target.style.color = 'var(--text-primary)'}
+                                        title="View all frames by this director"
+                                    >
+                                        {frame.director}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style={{
+                                        fontSize: '10px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.15em',
+                                        color: 'var(--text-tertiary)',
+                                        marginBottom: '6px'
+                                    }}>
+                                        Cinematographer
+                                    </div>
+                                    <div style={{ fontSize: '14px' }}>{frame.dp}</div>
+                                </div>
+                                <div>
+                                    <div style={{
+                                        fontSize: '10px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.15em',
+                                        color: 'var(--text-tertiary)',
+                                        marginBottom: '6px'
+                                    }}>
+                                        Mood
+                                    </div>
+                                    <div style={{ fontSize: '14px' }}>{frame.mood}</div>
+                                </div>
+                                <div>
+                                    <div style={{
+                                        fontSize: '10px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.15em',
+                                        color: 'var(--text-tertiary)',
+                                        marginBottom: '6px'
+                                    }}>
+                                        Lighting
+                                    </div>
+                                    <div style={{ fontSize: '14px' }}>{frame.lighting}</div>
+                                </div>
+                            </div>
+
+                            {/* Color Palette */}
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{
+                                    fontSize: '10px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.15em',
+                                    color: 'var(--text-tertiary)',
+                                    marginBottom: '12px'
+                                }}>
+                                    Color Palette
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    {frame.color.map((c, i) => (
+                                        <div key={i} style={{ textAlign: 'center' }}>
+                                            <div style={{
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '8px',
+                                                background: c,
+                                                marginBottom: '6px'
+                                            }} />
+                                            <div style={{
+                                                fontSize: '10px',
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                                color: 'var(--text-tertiary)'
+                                            }}>
+                                                {c}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Tags */}
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{
+                                    fontSize: '10px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.15em',
+                                    color: 'var(--text-tertiary)',
+                                    marginBottom: '12px'
+                                }}>
+                                    Tags
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {frame.tags.map(tag => (
+                                        <span key={tag} style={{
+                                            padding: '6px 14px',
+                                            background: 'var(--bg-tertiary)',
+                                            borderRadius: '100px',
+                                            fontSize: '12px'
+                                        }}>
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div style={{
+                                marginTop: 'auto',
+                                display: 'flex',
+                                gap: '12px'
+                            }}>
+                                <button
+                                    onClick={() => onFindSimilar(frame)}
+                                    style={{
+                                        flex: 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        padding: '14px 20px',
+                                        background: 'transparent',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <Icons.Similar />
+                                    Find Similar
+                                </button>
+                                <a
+                                    href={frame.image}
+                                    download={frame.title || 'frame'}
+                                    style={{
+                                        flex: 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        padding: '14px 20px',
+                                        background: 'var(--accent)',
+                                        color: 'var(--bg-primary)',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        transition: 'all 0.2s',
+                                        textDecoration: 'none'
+                                    }}
+                                >
+                                    <Icons.Download />
+                                    Download
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Shuffle array helper (Fisher-Yates)
+        const shuffleArray = (array) => {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        };
+
+        // About Modal
+        const AboutModal = ({ onClose }) => {
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Escape') onClose();
+                };
+                document.addEventListener('keydown', handleKeyDown);
+                document.body.style.overflow = 'hidden';
+                return () => {
+                    document.removeEventListener('keydown', handleKeyDown);
+                    document.body.style.overflow = '';
+                };
+            }, [onClose]);
+
+            return (
+                <div
+                    onClick={onClose}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 200,
+                        background: 'rgba(0,0,0,0.95)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '40px',
+                        animation: 'fadeIn 0.3s ease-out'
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            maxWidth: '600px',
+                            width: '100%',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '16px',
+                            padding: '48px',
+                            border: '1px solid var(--border)',
+                            animation: 'scaleIn 0.3s ease-out',
+                            textAlign: 'center'
+                        }}
+                    >
+                        {/* Logo */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <svg width="80" height="80" viewBox="0 0 700 450" fill="none" style={{ margin: '0 auto' }}>
+                                <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
+                                <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
+                                <rect x="295" y="340" width="50" height="50" transform="rotate(45 320 365)" fill="#ffd900"/>
+                            </svg>
+                        </div>
+
+                        <h2 style={{
+                            fontSize: '36px',
+                            fontWeight: 700,
+                            fontFamily: "'HT Moshreq Pro', sans-serif",
+                            color: 'var(--accent)',
+                            marginBottom: '16px'
+                        }}>
+                            برواز
+                        </h2>
+
+                        <p style={{
+                            fontSize: '18px',
+                            fontFamily: "'HT Moshreq Pro', sans-serif",
+                            color: 'var(--text-primary)',
+                            marginBottom: '24px',
+                            lineHeight: 1.8
+                        }}>
+                            مبادرة سعودية لدراسة وتوثيق أعمال المخرجين السعوديين
+                        </p>
+
+                        <p style={{
+                            fontSize: '14px',
+                            color: 'var(--text-secondary)',
+                            marginBottom: '32px',
+                            lineHeight: 1.8
+                        }}>
+                            A Saudi initiative dedicated to studying and archiving the visual works of directors based in Saudi Arabia. This platform serves as a cinematic reference library, preserving and showcasing the unique visual storytelling of Saudi filmmakers.
+                        </p>
+
+                        <div style={{
+                            borderTop: '1px solid var(--border)',
+                            paddingTop: '24px',
+                            marginTop: '24px'
+                        }}>
+                            <div style={{
+                                fontSize: '12px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.15em',
+                                color: 'var(--text-tertiary)',
+                                marginBottom: '16px'
+                            }}>
+                                Featured Directors
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
+                                {DIRECTORS.map((director) => (
+                                    <div key={director.name} style={{ textAlign: 'center' }}>
+                                        <div style={{
+                                            fontSize: '14px',
+                                            fontFamily: "'HT Moshreq Pro', sans-serif",
+                                            color: 'var(--text-primary)'
+                                        }}>
+                                            {director.nameAr}
+                                        </div>
+                                        <div style={{
+                                            fontSize: '11px',
+                                            color: 'var(--text-tertiary)',
+                                            marginTop: '4px'
+                                        }}>
+                                            {director.name}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={onClose}
+                            style={{
+                                marginTop: '32px',
+                                padding: '12px 32px',
+                                background: 'var(--accent)',
+                                color: 'var(--bg-primary)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Featured Visuals Modal
+        const FeaturedModal = ({ onClose, frames, onSelectFrame }) => {
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Escape') onClose();
+                };
+                document.addEventListener('keydown', handleKeyDown);
+                document.body.style.overflow = 'hidden';
+                return () => {
+                    document.removeEventListener('keydown', handleKeyDown);
+                    document.body.style.overflow = '';
+                };
+            }, [onClose]);
+
+            // Get a curated selection of featured frames (random 12 from the collection)
+            const featuredFrames = useMemo(() => {
+                const shuffled = [...frames].sort(() => Math.random() - 0.5);
+                return shuffled.slice(0, 12);
+            }, [frames]);
+
+            return (
+                <div
+                    onClick={onClose}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 200,
+                        background: 'rgba(0,0,0,0.95)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '40px',
+                        animation: 'fadeIn 0.3s ease-out',
+                        overflowY: 'auto'
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            maxWidth: '1200px',
+                            width: '100%',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '16px',
+                            padding: '48px',
+                            border: '1px solid var(--border)',
+                            animation: 'scaleIn 0.3s ease-out'
+                        }}
+                    >
+                        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                            <h2 style={{
+                                fontSize: '28px',
+                                fontWeight: 700,
+                                fontFamily: "'HT Moshreq Pro', sans-serif",
+                                color: 'var(--accent)',
+                                marginBottom: '8px'
+                            }}>
+                                لقطات مميزة
+                            </h2>
+                            <p style={{
+                                fontSize: '14px',
+                                color: 'var(--text-secondary)'
+                            }}>
+                                Featured Visuals from our collection
+                            </p>
+                        </div>
+
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gap: '16px'
+                        }}>
+                            {featuredFrames.map((frame, index) => (
+                                <div
+                                    key={frame.id}
+                                    onClick={() => {
+                                        onSelectFrame(frame);
+                                        onClose();
+                                    }}
+                                    style={{
+                                        position: 'relative',
+                                        aspectRatio: '16/9',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.3s, box-shadow 0.3s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.boxShadow = '0 10px 40px rgba(255,217,0,0.2)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                    }}
+                                >
+                                    <img
+                                        src={frame.image}
+                                        alt={frame.title}
+                                        loading="lazy"
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        padding: '24px 12px 12px',
+                                        background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                                        fontSize: '11px',
+                                        color: 'var(--text-secondary)'
+                                    }}>
+                                        {frame.director}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ textAlign: 'center', marginTop: '32px' }}>
+                            <button
+                                onClick={onClose}
+                                style={{
+                                    padding: '12px 32px',
+                                    background: 'var(--accent)',
+                                    color: 'var(--bg-primary)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App
+        const App = () => {
+            // Transform embedded data to include full image path and shuffle on load
+            const [frames] = useState(() => {
+                const processed = FRAMES_DATA.map(frame => ({
+                    ...frame,
+                    image: frame.file ? CONTENT_PATH + encodeURI(frame.file) : frame.image
+                }));
+                return shuffleArray(processed);
+            });
+            const [searchQuery, setSearchQuery] = useState('');
+            const [activeTags, setActiveTags] = useState([]);
+            const [showFilters, setShowFilters] = useState(false);
+            const [selectedFrame, setSelectedFrame] = useState(null);
+            const [similarityMode, setSimilarityMode] = useState(null);
+            const [filterDirector, setFilterDirector] = useState(null);
+            const [filterSource, setFilterSource] = useState(null);
+            const [showAbout, setShowAbout] = useState(false);
+            const [showFeatured, setShowFeatured] = useState(false);
+            const [frameSize, setFrameSize] = useState('M');
+
+            // Grid column count based on frame size: S=4, M=3, L=2
+            const gridColumns = { S: 4, M: 3, L: 2 };
+
+            const toggleTag = useCallback((tag) => {
+                setActiveTags(prev =>
+                    prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                );
+            }, []);
+
+            const clearFilters = useCallback(() => {
+                setActiveTags([]);
+                setFilterDirector(null);
+                setFilterSource(null);
+                setSimilarityMode(null);
+            }, []);
+
+            const handleFindSimilar = useCallback((frame) => {
+                setSimilarityMode(frame);
+                setSelectedFrame(null);
+            }, []);
+
+            const handleFilterByDirector = useCallback((director) => {
+                setFilterDirector(director);
+                setFilterSource(null);
+                setSimilarityMode(null);
+                setSelectedFrame(null);
+            }, []);
+
+            const handleFilterBySource = useCallback((source) => {
+                setFilterSource(source);
+                setFilterDirector(null);
+                setSimilarityMode(null);
+                setSelectedFrame(null);
+            }, []);
+
+            // Filter frames
+            const filteredFrames = useMemo(() => {
+                let result = frames;
+
+                // Filter by director
+                if (filterDirector) {
+                    result = result.filter(f => f.director === filterDirector);
+                }
+
+                // Filter by source/project
+                if (filterSource) {
+                    result = result.filter(f => f.source === filterSource);
+                }
+
+                if (similarityMode) {
+                    result = result.filter(f =>
+                        f.id !== similarityMode.id &&
+                        f.tags.some(t => similarityMode.tags.includes(t))
+                    );
+                }
+
+                if (searchQuery.trim()) {
+                    const q = searchQuery.toLowerCase();
+                    result = result.filter(f =>
+                        f.title.toLowerCase().includes(q) ||
+                        f.source.toLowerCase().includes(q) ||
+                        f.director.toLowerCase().includes(q) ||
+                        f.tags.some(t => t.toLowerCase().includes(q))
+                    );
+                }
+
+                if (activeTags.length > 0) {
+                    result = result.filter(f =>
+                        activeTags.some(tag =>
+                            f.mood.toLowerCase().includes(tag.toLowerCase()) ||
+                            f.lighting.toLowerCase().includes(tag.toLowerCase()) ||
+                            f.tags.some(t => t.toLowerCase().includes(tag.toLowerCase()))
+                        )
+                    );
+                }
+
+                return result;
+            }, [frames, searchQuery, activeTags, similarityMode, filterDirector, filterSource]);
+
+            return (
+                <div style={{ minHeight: '100vh' }}>
+                    <Header
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        onSearch={() => {}}
+                        showFilters={showFilters}
+                        setShowFilters={setShowFilters}
+                        onFilterByDirector={handleFilterByDirector}
+                        onShowAbout={() => setShowAbout(true)}
+                        onShowFeatured={() => setShowFeatured(true)}
+                        frameSize={frameSize}
+                        setFrameSize={setFrameSize}
+                    />
+
+                    {showFilters && (
+                        <FilterBar
+                            activeTags={activeTags}
+                            toggleTag={toggleTag}
+                            clearFilters={clearFilters}
+                        />
+                    )}
+
+                    {/* Main Content */}
+                    <main style={{
+                        paddingTop: showFilters ? '250px' : '105px',
+                        transition: 'padding 0.3s'
+                    }}>
+                        {/* Filter Banners */}
+                        {(similarityMode || filterDirector || filterSource) && (
+                            <div style={{
+                                maxWidth: '1800px',
+                                margin: '0 auto 24px',
+                                padding: '0 24px'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '16px 20px',
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        {similarityMode && (
+                                            <>
+                                                <Icons.Similar />
+                                                <span>Showing frames similar to <strong>{similarityMode.title}</strong></span>
+                                            </>
+                                        )}
+                                        {filterDirector && (
+                                            <>
+                                                <Icons.User />
+                                                <span>Showing all frames by <strong style={{ color: 'var(--accent)' }}>{filterDirector}</strong></span>
+                                            </>
+                                        )}
+                                        {filterSource && (
+                                            <>
+                                                <Icons.Film />
+                                                <span>Showing all frames from <strong style={{ color: 'var(--accent)' }}>{filterSource}</strong></span>
+                                            </>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={clearFilters}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            fontSize: '13px'
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Results Count */}
+                        <div style={{
+                            maxWidth: '1800px',
+                            margin: '0 auto',
+                            padding: '0 24px 24px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div style={{
+                                fontSize: '13px',
+                                color: 'var(--text-tertiary)'
+                            }}>
+                                {filteredFrames.length} frames
+                            </div>
+                            <div style={{
+                                fontSize: '11px',
+                                color: 'var(--accent)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                opacity: 0.8
+                            }}>
+                                <Icons.Sparkle />
+                                AI-powered search
+                            </div>
+                        </div>
+
+                        {/* Masonry Grid */}
+                        {filteredFrames.length > 0 && (
+                            <div
+                                className={`frame-grid frame-grid-${frameSize.toLowerCase()}`}
+                                style={{
+                                    maxWidth: '2200px',
+                                    margin: '0 auto',
+                                    padding: '0 32px 60px',
+                                    transition: 'all 0.3s ease'
+                                }}>
+                                {filteredFrames.map((frame, index) => (
+                                    <div key={frame.id} style={{ marginBottom: frameSize === 'S' ? '12px' : frameSize === 'L' ? '24px' : '16px', breakInside: 'avoid' }}>
+                                        <FrameCard
+                                            frame={frame}
+                                            index={index}
+                                            onClick={setSelectedFrame}
+                                            size={frameSize}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Empty State */}
+                        {filteredFrames.length === 0 && (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '80px 24px',
+                                color: 'var(--text-tertiary)'
+                            }}>
+                                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>◇</div>
+                                <div style={{ fontSize: '16px' }}>No frames found</div>
+                                <div style={{ fontSize: '13px', marginTop: '8px' }}>Try adjusting your search or filters</div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Frame Modal */}
+                    {selectedFrame && (
+                        <FrameModal
+                            frame={selectedFrame}
+                            onClose={() => setSelectedFrame(null)}
+                            onFindSimilar={handleFindSimilar}
+                            onFilterByDirector={handleFilterByDirector}
+                            onFilterBySource={handleFilterBySource}
+                        />
+                    )}
+
+                    {/* About Modal */}
+                    {showAbout && (
+                        <AboutModal onClose={() => setShowAbout(false)} />
+                    )}
+
+                    {/* Featured Visuals Modal */}
+                    {showFeatured && (
+                        <FeaturedModal
+                            onClose={() => setShowFeatured(false)}
+                            frames={frames}
+                            onSelectFrame={setSelectedFrame}
+                        />
+                    )}
+
+                    {/* Footer */}
+                    <footer style={{
+                        borderTop: '1px solid var(--border)',
+                        padding: '40px 24px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '12px',
+                            marginBottom: '12px'
+                        }}>
+                            <svg width="40" height="40" viewBox="0 0 700 450" fill="none">
+                                <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
+                                <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
+                                <rect x="295" y="340" width="50" height="50" transform="rotate(45 320 365)" fill="#ffd900"/>
+                            </svg>
+                            <span style={{
+                                fontSize: '20px',
+                                fontWeight: 600,
+                                fontFamily: "'HT Moshreq Pro', sans-serif",
+                                color: 'var(--accent)'
+                            }}>
+                                برواز
+                            </span>
+                        </div>
+                        <div style={{
+                            fontSize: '12px',
+                            color: 'var(--text-tertiary)',
+                            opacity: 0.6
+                        }}>
+                            Cinematic Reference Library — Free and open. No signup required.
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+
+    <style>
+        /* Frame Grid Sizes */
+        .frame-grid-s {
+            column-count: 4;
+            column-gap: 12px;
+        }
+        .frame-grid-m {
+            column-count: 3;
+            column-gap: 18px;
+        }
+        .frame-grid-l {
+            column-count: 2;
+            column-gap: 24px;
+        }
+
+        /* Responsive - reduce columns on smaller screens */
+        @media (max-width: 1400px) {
+            .frame-grid-s { column-count: 3; }
+            .frame-grid-m { column-count: 2; }
+            .frame-grid-l { column-count: 2; }
+        }
+        @media (max-width: 900px) {
+            .frame-grid-s { column-count: 2; }
+            .frame-grid-m { column-count: 2; }
+            .frame-grid-l { column-count: 1; }
+        }
+        @media (max-width: 600px) {
+            .frame-grid-s { column-count: 1; }
+            .frame-grid-m { column-count: 1; }
+            .frame-grid-l { column-count: 1; }
+        }
+    </style>
+</body>
+</html>
