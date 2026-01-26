@@ -970,9 +970,24 @@
                                     <Icons.Similar />
                                     Find Similar
                                 </button>
-                                <a
-                                    href={frame.image}
-                                    download={frame.title || 'frame'}
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const response = await fetch(frame.image);
+                                            const blob = await response.blob();
+                                            const url = window.URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `${frame.title || 'frame'}.${frame.image.split('.').pop()}`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            window.URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                            console.error('Download failed:', err);
+                                            window.open(frame.image, '_blank');
+                                        }
+                                    }}
                                     style={{
                                         flex: 1,
                                         display: 'flex',
@@ -987,13 +1002,12 @@
                                         cursor: 'pointer',
                                         fontSize: '13px',
                                         fontWeight: 600,
-                                        transition: 'all 0.2s',
-                                        textDecoration: 'none'
+                                        transition: 'all 0.2s'
                                     }}
                                 >
                                     <Icons.Download />
                                     Download
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>
