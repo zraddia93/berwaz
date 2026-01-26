@@ -683,7 +683,7 @@
         };
 
         // Frame Detail Modal
-        const FrameModal = ({ frame, onClose, onFilterByDirector, onFilterBySource }) => {
+        const FrameModal = ({ frame, onClose, onFilterByDirector, onFilterBySource, onFilterByTag }) => {
             // Close on Escape key
             useEffect(() => {
                 const handleKeyDown = (e) => {
@@ -925,14 +925,30 @@
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                     {frame.tags.map(tag => (
-                                        <span key={tag} style={{
-                                            padding: '6px 14px',
-                                            background: 'var(--bg-tertiary)',
-                                            borderRadius: '100px',
-                                            fontSize: '12px'
-                                        }}>
+                                        <button
+                                            key={tag}
+                                            onClick={() => onFilterByTag(tag)}
+                                            style={{
+                                                padding: '6px 14px',
+                                                background: 'var(--bg-tertiary)',
+                                                borderRadius: '100px',
+                                                fontSize: '12px',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.background = 'var(--accent)';
+                                                e.target.style.color = '#000';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.background = 'var(--bg-tertiary)';
+                                                e.target.style.color = 'var(--text-primary)';
+                                            }}
+                                        >
                                             {tag}
-                                        </span>
+                                        </button>
                                     ))}
                                 </div>
                             </div>
@@ -1287,6 +1303,11 @@
                 setSelectedFrame(null);
             }, []);
 
+            const handleFilterByTag = useCallback((tag) => {
+                setSearchQuery(tag);
+                setSelectedFrame(null);
+            }, []);
+
             // Filter frames
             const filteredFrames = useMemo(() => {
                 let result = frames;
@@ -1470,6 +1491,7 @@
                             onClose={() => setSelectedFrame(null)}
                             onFilterByDirector={handleFilterByDirector}
                             onFilterBySource={handleFilterBySource}
+                            onFilterByTag={handleFilterByTag}
                         />
                     )}
 
