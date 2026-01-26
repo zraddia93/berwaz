@@ -387,8 +387,8 @@
                             )}
                         </div>
 
-                        {/* Actions - RTL order: About, Directors, Featured Visuals, Filters */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'ltr' }}>
+                        {/* Actions - RTL order: Filters, Featured Visuals, Directors, About */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
                             {/* About Button */}
                             <button
                                 onClick={onShowAbout}
@@ -454,31 +454,28 @@
                                             scrollbarColor: 'var(--accent) var(--bg-tertiary)'
                                         }}>
                                             {DIRECTORS.map((director) => (
-                                                <button
+                                                <a
                                                     key={director.name}
-                                                    onClick={() => {
-                                                        onFilterByDirector(director.name);
-                                                        setShowDirectors(false);
-                                                    }}
+                                                    href={`directors/index.html#${director.name.toLowerCase().replace(/ /g, '-')}`}
                                                     style={{
                                                         display: 'block',
                                                         width: '100%',
                                                         padding: '10px 16px',
                                                         background: 'transparent',
-                                                        border: 'none',
                                                         color: 'var(--text-primary)',
                                                         fontSize: '13px',
                                                         textAlign: 'right',
                                                         cursor: 'pointer',
                                                         transition: 'background 0.2s',
-                                                        fontFamily: "'HT Moshreq Pro', sans-serif"
+                                                        fontFamily: "'HT Moshreq Pro', sans-serif",
+                                                        textDecoration: 'none'
                                                     }}
                                                     onMouseEnter={(e) => e.target.style.background = 'var(--bg-tertiary)'}
                                                     onMouseLeave={(e) => e.target.style.background = 'transparent'}
                                                 >
                                                     <div style={{ fontWeight: 600 }}>{director.nameAr}</div>
                                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'Space Grotesk, sans-serif' }}>{director.name}</div>
-                                                </button>
+                                                </a>
                                             ))}
                                         </div>
                                         <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }}></div>
