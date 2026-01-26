@@ -1294,14 +1294,16 @@
             const [activeTags, setActiveTags] = useState([]);
             const [showFilters, setShowFilters] = useState(false);
             const [selectedFrame, setSelectedFrame] = useState(null);
-                        const [filterDirector, setFilterDirector] = useState(null);
+
+            // Check URL params for director filter on load
+            const [filterDirector, setFilterDirector] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('director') || null;
+            });
             const [filterSource, setFilterSource] = useState(null);
             const [showAbout, setShowAbout] = useState(false);
             const [showFeatured, setShowFeatured] = useState(false);
             const [frameSize, setFrameSize] = useState('M');
-
-            // Grid column count based on frame size: S=4, M=3, L=2
-            const gridColumns = { S: 4, M: 3, L: 2 };
 
             const toggleTag = useCallback((tag) => {
                 setActiveTags(prev =>
