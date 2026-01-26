@@ -1103,10 +1103,10 @@
                 };
             }, [onClose]);
 
-            // Get a curated selection of featured frames (random 12 from the collection)
+            // Get a curated selection of featured frames (random 6 from the collection)
             const featuredFrames = useMemo(() => {
                 const shuffled = [...frames].sort(() => Math.random() - 0.5);
-                return shuffled.slice(0, 12);
+                return shuffled.slice(0, 6);
             }, [frames]);
 
             return (
@@ -1128,7 +1128,7 @@
                     <div
                         onClick={(e) => e.stopPropagation()}
                         style={{
-                            maxWidth: '1200px',
+                            maxWidth: '1400px',
                             width: '100%',
                             background: 'var(--bg-secondary)',
                             borderRadius: '16px',
@@ -1141,24 +1141,23 @@
                             <h2 style={{
                                 fontSize: '28px',
                                 fontWeight: 700,
-                                fontFamily: "'HT Moshreq Pro', sans-serif",
                                 color: 'var(--accent)',
                                 marginBottom: '8px'
                             }}>
-                                لقطات مميزة
+                                Featured Visuals
                             </h2>
                             <p style={{
                                 fontSize: '14px',
                                 color: 'var(--text-secondary)'
                             }}>
-                                Featured Visuals from our collection
+                                Curated frames from our collection
                             </p>
                         </div>
 
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(4, 1fr)',
-                            gap: '16px'
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: '24px'
                         }}>
                             {featuredFrames.map((frame, index) => (
                                 <div
@@ -1170,13 +1169,13 @@
                                     style={{
                                         position: 'relative',
                                         aspectRatio: '16/9',
-                                        borderRadius: '8px',
+                                        borderRadius: '12px',
                                         overflow: 'hidden',
                                         cursor: 'pointer',
                                         transition: 'transform 0.3s, box-shadow 0.3s'
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.transform = 'scale(1.02)';
                                         e.currentTarget.style.boxShadow = '0 10px 40px rgba(255,217,0,0.2)';
                                     }}
                                     onMouseLeave={(e) => {
@@ -1194,18 +1193,6 @@
                                             objectFit: 'cover'
                                         }}
                                     />
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        padding: '24px 12px 12px',
-                                        background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                                        fontSize: '11px',
-                                        color: 'var(--text-secondary)'
-                                    }}>
-                                        {frame.director}
-                                    </div>
                                 </div>
                             ))}
                         </div>
