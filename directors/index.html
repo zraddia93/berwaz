@@ -237,26 +237,47 @@
                     </a>
                 </div>
 
-                {onBack && (
-                    <button
-                        onClick={onBack}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {onBack && (
+                        <button
+                            onClick={onBack}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 20px',
+                                background: 'transparent',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            ← Back to Directors
+                        </button>
+                    )}
+                    <a
+                        href="../index.html"
                         style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
                             padding: '10px 20px',
-                            background: 'transparent',
-                            border: '1px solid var(--border)',
+                            background: 'var(--accent)',
+                            border: 'none',
                             borderRadius: '8px',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
+                            color: '#000',
+                            textDecoration: 'none',
                             fontSize: '14px',
+                            fontWeight: 600,
                             transition: 'all 0.2s'
                         }}
                     >
-                        ← Back to Directors
-                    </button>
-                )}
+                        ← Main Page
+                    </a>
+                </div>
             </header>
         );
 
