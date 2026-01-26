@@ -447,33 +447,40 @@
                                         zIndex: 200,
                                         boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
                                     }}>
-                                        {DIRECTORS.map((director) => (
-                                            <button
-                                                key={director.name}
-                                                onClick={() => {
-                                                    onFilterByDirector(director.name);
-                                                    setShowDirectors(false);
-                                                }}
-                                                style={{
-                                                    display: 'block',
-                                                    width: '100%',
-                                                    padding: '12px 16px',
-                                                    background: 'transparent',
-                                                    border: 'none',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: '13px',
-                                                    textAlign: 'right',
-                                                    cursor: 'pointer',
-                                                    transition: 'background 0.2s',
-                                                    fontFamily: "'HT Moshreq Pro', sans-serif"
-                                                }}
-                                                onMouseEnter={(e) => e.target.style.background = 'var(--bg-tertiary)'}
-                                                onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                                            >
-                                                <div style={{ fontWeight: 600 }}>{director.nameAr}</div>
-                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'Space Grotesk, sans-serif' }}>{director.name}</div>
-                                            </button>
-                                        ))}
+                                        <div style={{
+                                            maxHeight: '280px',
+                                            overflowY: 'auto',
+                                            scrollbarWidth: 'thin',
+                                            scrollbarColor: 'var(--accent) var(--bg-tertiary)'
+                                        }}>
+                                            {DIRECTORS.map((director) => (
+                                                <button
+                                                    key={director.name}
+                                                    onClick={() => {
+                                                        onFilterByDirector(director.name);
+                                                        setShowDirectors(false);
+                                                    }}
+                                                    style={{
+                                                        display: 'block',
+                                                        width: '100%',
+                                                        padding: '10px 16px',
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '13px',
+                                                        textAlign: 'right',
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.2s',
+                                                        fontFamily: "'HT Moshreq Pro', sans-serif"
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.background = 'var(--bg-tertiary)'}
+                                                    onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                                >
+                                                    <div style={{ fontWeight: 600 }}>{director.nameAr}</div>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'Space Grotesk, sans-serif' }}>{director.name}</div>
+                                                </button>
+                                            ))}
+                                        </div>
                                         <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }}></div>
                                         <a
                                             href="directors/index.html"
