@@ -288,6 +288,7 @@
         const Header = ({ onSearch, searchQuery, setSearchQuery, showFilters, setShowFilters, onFilterByDirector, onShowAbout, onShowFeatured, frameSize, setFrameSize }) => {
             const [focused, setFocused] = useState(false);
             const [showDirectors, setShowDirectors] = useState(false);
+            const [showMobileMenu, setShowMobileMenu] = useState(false);
 
             return (
                 <header style={{
@@ -303,21 +304,21 @@
                     <div style={{
                         maxWidth: '1800px',
                         margin: '0 auto',
-                        padding: '16px 24px',
+                        padding: '12px 16px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '32px',
+                        gap: '16px',
                         direction: 'rtl'
                     }}>
                         {/* Logo */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <svg width="48" height="48" viewBox="0 0 700 450" fill="none">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <svg width="36" height="36" viewBox="0 0 700 450" fill="none">
                                 <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
                                 <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
                                 <rect x="295" y="340" width="50" height="50" transform="rotate(45 320 365)" fill="#ffd900"/>
                             </svg>
-                            <span style={{
-                                fontSize: '24px',
+                            <span className="mobile-hide" style={{
+                                fontSize: '20px',
                                 fontWeight: 600,
                                 fontFamily: "'HT Moshreq Pro', sans-serif",
                                 color: 'var(--accent)'
@@ -334,7 +335,7 @@
                         }}>
                             <div style={{
                                 position: 'absolute',
-                                left: '16px',
+                                left: '12px',
                                 top: '50%',
                                 transform: 'translateY(-50%)',
                                 color: focused ? 'var(--text-primary)' : 'var(--text-tertiary)',
@@ -349,10 +350,10 @@
                                 onFocus={() => setFocused(true)}
                                 onBlur={() => setFocused(false)}
                                 onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-                                placeholder="Search frames, films, directors..."
+                                placeholder="Search..."
                                 style={{
                                     width: '100%',
-                                    padding: '12px 16px 12px 48px',
+                                    padding: '10px 14px 10px 40px',
                                     background: focused ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
                                     border: `1px solid ${focused ? 'var(--border-hover)' : 'var(--border)'}`,
                                     borderRadius: '8px',
@@ -367,14 +368,16 @@
                                     onClick={() => setSearchQuery('')}
                                     style={{
                                         position: 'absolute',
-                                        right: '12px',
+                                        right: '10px',
                                         top: '50%',
                                         transform: 'translateY(-50%)',
                                         background: 'none',
                                         border: 'none',
                                         color: 'var(--text-tertiary)',
                                         cursor: 'pointer',
-                                        padding: '4px'
+                                        padding: '4px',
+                                        minHeight: 'auto',
+                                        minWidth: 'auto'
                                     }}
                                 >
                                     <Icons.X />
@@ -382,8 +385,33 @@
                             )}
                         </div>
 
-                        {/* Actions - RTL order: Filters, Featured Visuals, Directors, About */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
+                        {/* Mobile Menu Button */}
+                        <button
+                            className="mobile-menu-btn"
+                            onClick={() => setShowMobileMenu(!showMobileMenu)}
+                            style={{
+                                display: 'none',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '10px',
+                                background: showMobileMenu ? 'var(--accent)' : 'transparent',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                color: showMobileMenu ? '#000' : 'var(--text-secondary)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                {showMobileMenu ? (
+                                    <path d="M18 6L6 18M6 6l12 12"/>
+                                ) : (
+                                    <path d="M3 12h18M3 6h18M3 18h18"/>
+                                )}
+                            </svg>
+                        </button>
+
+                        {/* Desktop Actions */}
+                        <div className="mobile-hide" style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
                             {/* About Button */}
                             <button
                                 onClick={onShowAbout}
@@ -544,6 +572,111 @@
                             <SizeSlider size={frameSize} setSize={setFrameSize} />
                         </div>
                     </div>
+
+                    {/* Mobile Menu Dropdown */}
+                    {showMobileMenu && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            background: 'rgba(0,0,0,0.95)',
+                            borderBottom: '1px solid var(--border)',
+                            padding: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            animation: 'fadeIn 0.2s ease-out'
+                        }}>
+                            <button
+                                onClick={() => { onShowAbout(); setShowMobileMenu(false); }}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '14px 16px',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    width: '100%',
+                                    textAlign: 'left'
+                                }}
+                            >
+                                About
+                            </button>
+                            <a
+                                href="directors/index.html"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '14px 16px',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    textDecoration: 'none',
+                                    width: '100%'
+                                }}
+                            >
+                                <Icons.User />
+                                Directors
+                            </a>
+                            <button
+                                onClick={() => { onShowFeatured(); setShowMobileMenu(false); }}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '14px 16px',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    width: '100%',
+                                    textAlign: 'left'
+                                }}
+                            >
+                                <Icons.Sparkle />
+                                Featured Visuals
+                            </button>
+                            <button
+                                onClick={() => { setShowFilters(!showFilters); setShowMobileMenu(false); }}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '14px 16px',
+                                    background: showFilters ? 'var(--accent)' : 'var(--bg-secondary)',
+                                    color: showFilters ? '#000' : 'var(--text-primary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    width: '100%',
+                                    textAlign: 'left'
+                                }}
+                            >
+                                <Icons.Filter />
+                                Filters
+                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
+                                <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Grid Size:</span>
+                                <SizeSlider size={frameSize} setSize={setFrameSize} />
+                            </div>
+                        </div>
+                    )}
                 </header>
             );
         };
@@ -702,6 +835,9 @@
 
             const isGif = frame.image?.toLowerCase().endsWith('.gif') || frame.type === 'gif';
 
+            // Check if mobile
+            const isMobile = window.innerWidth <= 768;
+
             return (
                 <div
                     onClick={onClose}
@@ -711,21 +847,48 @@
                         zIndex: 200,
                         background: 'rgba(0,0,0,0.95)',
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: isMobile ? 'flex-start' : 'center',
                         justifyContent: 'center',
-                        padding: '40px',
+                        padding: isMobile ? '16px' : '40px',
+                        overflowY: 'auto',
                         animation: 'fadeIn 0.3s ease-out'
                     }}
                 >
+                    {/* Close button for mobile */}
+                    <button
+                        onClick={onClose}
+                        style={{
+                            position: 'fixed',
+                            top: '16px',
+                            right: '16px',
+                            zIndex: 210,
+                            width: '44px',
+                            height: '44px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.8)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '50%',
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <Icons.X />
+                    </button>
+
                     <div
                         onClick={(e) => e.stopPropagation()}
+                        className="modal-content"
                         style={{
                             maxWidth: '1400px',
                             width: '100%',
                             display: 'grid',
-                            gridTemplateColumns: '1fr 380px',
-                            gap: '40px',
-                            animation: 'scaleIn 0.3s ease-out'
+                            gridTemplateColumns: isMobile ? '1fr' : '1fr 380px',
+                            gap: isMobile ? '20px' : '40px',
+                            animation: 'scaleIn 0.3s ease-out',
+                            marginTop: isMobile ? '60px' : '0',
+                            marginBottom: isMobile ? '20px' : '0'
                         }}
                     >
                         {/* Image/GIF */}
@@ -747,8 +910,8 @@
                             {/* Aspect ratio badge */}
                             <div style={{
                                 position: 'absolute',
-                                top: '16px',
-                                left: '16px',
+                                top: '12px',
+                                left: '12px',
                                 padding: '6px 12px',
                                 background: 'rgba(0,0,0,0.7)',
                                 borderRadius: '4px',
@@ -761,26 +924,10 @@
                         </div>
 
                         {/* Details */}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            {/* Close button */}
-                            <button
-                                onClick={onClose}
-                                style={{
-                                    alignSelf: 'flex-end',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--text-tertiary)',
-                                    cursor: 'pointer',
-                                    padding: '8px',
-                                    marginBottom: '16px'
-                                }}
-                            >
-                                <Icons.X />
-                            </button>
-
+                        <div className="modal-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
                             {/* Title & Source */}
                             <h2 style={{
-                                fontSize: '28px',
+                                fontSize: isMobile ? '22px' : '28px',
                                 fontWeight: 600,
                                 letterSpacing: '-0.02em',
                                 marginBottom: '8px'
@@ -1578,9 +1725,39 @@
             .frame-grid-l { column-count: 1; }
         }
         @media (max-width: 600px) {
-            .frame-grid-s { column-count: 1; }
-            .frame-grid-m { column-count: 1; }
-            .frame-grid-l { column-count: 1; }
+            .frame-grid-s { column-count: 2; column-gap: 8px; }
+            .frame-grid-m { column-count: 2; column-gap: 8px; }
+            .frame-grid-l { column-count: 1; column-gap: 8px; }
+        }
+
+        /* Mobile Header */
+        @media (max-width: 768px) {
+            .mobile-hide { display: none !important; }
+            .mobile-menu-btn { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+            .mobile-menu-btn { display: none !important; }
+        }
+
+        /* Mobile Modal */
+        @media (max-width: 768px) {
+            .modal-content {
+                grid-template-columns: 1fr !important;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            .modal-sidebar {
+                max-height: none !important;
+                overflow-y: visible !important;
+            }
+        }
+
+        /* Touch-friendly buttons */
+        @media (max-width: 768px) {
+            button, a {
+                min-height: 44px;
+                min-width: 44px;
+            }
         }
     </style>
 </body>
