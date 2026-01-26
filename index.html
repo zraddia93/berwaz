@@ -1103,11 +1103,12 @@
                 };
             }, [onClose]);
 
-            // Get a curated selection of featured frames (changes once per day)
+            // Get a curated selection of featured frames (changes every 8 hours)
             const featuredFrames = useMemo(() => {
-                // Use today's date as seed for consistent daily selection
-                const today = new Date();
-                const dateSeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+                // Use 8-hour period as seed for consistent selection
+                const now = new Date();
+                const hoursSinceEpoch = Math.floor(now.getTime() / (1000 * 60 * 60));
+                const periodSeed = Math.floor(hoursSinceEpoch / 8); // Changes every 8 hours
 
                 // Seeded random function
                 const seededRandom = (seed) => {
@@ -1118,7 +1119,7 @@
                 // Shuffle with seeded random
                 const shuffled = [...frames].map((frame, i) => ({
                     frame,
-                    sort: seededRandom(dateSeed + i)
+                    sort: seededRandom(periodSeed + i)
                 })).sort((a, b) => a.sort - b.sort).map(item => item.frame);
 
                 return shuffled.slice(0, 6);
