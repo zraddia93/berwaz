@@ -1052,67 +1052,20 @@
                         <h2 style={{
                             fontSize: '36px',
                             fontWeight: 700,
-                            fontFamily: "'HT Moshreq Pro', sans-serif",
                             color: 'var(--accent)',
-                            marginBottom: '16px'
+                            marginBottom: '24px'
                         }}>
-                            برواز
+                            Berwaz
                         </h2>
 
                         <p style={{
-                            fontSize: '18px',
-                            fontFamily: "'HT Moshreq Pro', sans-serif",
-                            color: 'var(--text-primary)',
-                            marginBottom: '24px',
-                            lineHeight: 1.8
-                        }}>
-                            مبادرة سعودية لدراسة وتوثيق أعمال المخرجين السعوديين
-                        </p>
-
-                        <p style={{
-                            fontSize: '14px',
+                            fontSize: '16px',
                             color: 'var(--text-secondary)',
                             marginBottom: '32px',
                             lineHeight: 1.8
                         }}>
-                            Berwaz, a visual study platform for filmmakers, students, and researchers to analyze Saudi-directed films through curated scene loops.
+                            A visual study platform for filmmakers, students, and researchers to analyze Saudi-directed films through curated scene loops.
                         </p>
-
-                        <div style={{
-                            borderTop: '1px solid var(--border)',
-                            paddingTop: '24px',
-                            marginTop: '24px'
-                        }}>
-                            <div style={{
-                                fontSize: '12px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.15em',
-                                color: 'var(--text-tertiary)',
-                                marginBottom: '16px'
-                            }}>
-                                Featured Directors
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
-                                {DIRECTORS.map((director) => (
-                                    <div key={director.name} style={{ textAlign: 'center' }}>
-                                        <div style={{
-                                            fontSize: '14px',
-                                            fontFamily: "'HT Moshreq Pro', sans-serif",
-                                            color: 'var(--text-primary)'
-                                        }}>
-                                            {director.nameAr}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '11px',
-                                            color: 'var(--text-tertiary)',
-                                            marginTop: '4px'
-                                        }}>
-                                            {director.name}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
 
                         <button
                             onClick={onClose}
