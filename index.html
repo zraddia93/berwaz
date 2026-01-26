@@ -217,11 +217,6 @@
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/>
                 </svg>
             ),
-            Similar: () => (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>
-                </svg>
-            ),
             User: () => (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
@@ -688,7 +683,7 @@
         };
 
         // Frame Detail Modal
-        const FrameModal = ({ frame, onClose, onFindSimilar, onFilterByDirector, onFilterBySource }) => {
+        const FrameModal = ({ frame, onClose, onFilterByDirector, onFilterBySource }) => {
             // Close on Escape key
             useEffect(() => {
                 const handleKeyDown = (e) => {
@@ -948,28 +943,6 @@
                                 display: 'flex',
                                 gap: '12px'
                             }}>
-                                <button
-                                    onClick={() => onFindSimilar(frame)}
-                                    style={{
-                                        flex: 1,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px',
-                                        padding: '14px 20px',
-                                        background: 'transparent',
-                                        color: 'var(--text-primary)',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: '8px',
-                                        cursor: 'pointer',
-                                        fontSize: '13px',
-                                        fontWeight: 500,
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <Icons.Similar />
-                                    Find Similar
-                                </button>
                                 <button
                                     onClick={async () => {
                                         try {
@@ -1321,8 +1294,7 @@
             const [activeTags, setActiveTags] = useState([]);
             const [showFilters, setShowFilters] = useState(false);
             const [selectedFrame, setSelectedFrame] = useState(null);
-            const [similarityMode, setSimilarityMode] = useState(null);
-            const [filterDirector, setFilterDirector] = useState(null);
+                        const [filterDirector, setFilterDirector] = useState(null);
             const [filterSource, setFilterSource] = useState(null);
             const [showAbout, setShowAbout] = useState(false);
             const [showFeatured, setShowFeatured] = useState(false);
@@ -1341,25 +1313,17 @@
                 setActiveTags([]);
                 setFilterDirector(null);
                 setFilterSource(null);
-                setSimilarityMode(null);
-            }, []);
-
-            const handleFindSimilar = useCallback((frame) => {
-                setSimilarityMode(frame);
-                setSelectedFrame(null);
             }, []);
 
             const handleFilterByDirector = useCallback((director) => {
                 setFilterDirector(director);
                 setFilterSource(null);
-                setSimilarityMode(null);
                 setSelectedFrame(null);
             }, []);
 
             const handleFilterBySource = useCallback((source) => {
                 setFilterSource(source);
                 setFilterDirector(null);
-                setSimilarityMode(null);
                 setSelectedFrame(null);
             }, []);
 
@@ -1375,13 +1339,6 @@
                 // Filter by source/project
                 if (filterSource) {
                     result = result.filter(f => f.source === filterSource);
-                }
-
-                if (similarityMode) {
-                    result = result.filter(f =>
-                        f.id !== similarityMode.id &&
-                        f.tags.some(t => similarityMode.tags.includes(t))
-                    );
                 }
 
                 if (searchQuery.trim()) {
@@ -1405,7 +1362,7 @@
                 }
 
                 return result;
-            }, [frames, searchQuery, activeTags, similarityMode, filterDirector, filterSource]);
+            }, [frames, searchQuery, activeTags, filterDirector, filterSource]);
 
             return (
                 <div style={{ minHeight: '100vh' }}>
@@ -1436,7 +1393,7 @@
                         transition: 'padding 0.3s'
                     }}>
                         {/* Filter Banners */}
-                        {(similarityMode || filterDirector || filterSource) && (
+                        {(filterDirector || filterSource) && (
                             <div style={{
                                 maxWidth: '1800px',
                                 margin: '0 auto 24px',
@@ -1452,12 +1409,6 @@
                                     borderRadius: '8px'
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        {similarityMode && (
-                                            <>
-                                                <Icons.Similar />
-                                                <span>Showing frames similar to <strong>{similarityMode.title}</strong></span>
-                                            </>
-                                        )}
                                         {filterDirector && (
                                             <>
                                                 <Icons.User />
@@ -1557,7 +1508,6 @@
                         <FrameModal
                             frame={selectedFrame}
                             onClose={() => setSelectedFrame(null)}
-                            onFindSimilar={handleFindSimilar}
                             onFilterByDirector={handleFilterByDirector}
                             onFilterBySource={handleFilterBySource}
                         />
