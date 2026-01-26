@@ -236,10 +236,21 @@
 
         // Directors list
         const DIRECTORS = [
+            { name: "Abdullah Algallaf", nameAr: "عبدالله القلاف" },
+            { name: "Abdullah Alkhamees", nameAr: "عبدالله الخميس" },
             { name: "Abdullah Majed", nameAr: "عبدالله ماجد" },
             { name: "Abdulrahman Elsingergy", nameAr: "عبدالرحمن السنجري" },
+            { name: "Ali Alkalthami", nameAr: "علي الكلثمي" },
+            { name: "Bader Nour", nameAr: "بدر نور" },
+            { name: "Fahad Alammari", nameAr: "فهد العماري" },
+            { name: "Majed Aleissa", nameAr: "ماجد العيسى" },
             { name: "Malek Alhammami", nameAr: "مالك الحمامي" },
-            { name: "Mohammad Almulla", nameAr: "محمد الملا" }
+            { name: "Meshal Aljasser", nameAr: "مشعل الجاسر" },
+            { name: "Mishary Almazyad", nameAr: "مشاري المزيد" },
+            { name: "Mohammad Alhamdan", nameAr: "محمد الحمدان" },
+            { name: "Mohammad Alharthi", nameAr: "محمد الحارثي" },
+            { name: "Mohammad Almulla", nameAr: "محمد الملا" },
+            { name: "Mohammad Alsuliman", nameAr: "محمد السليمان" }
         ];
 
         // Size Slider Component - Segmented Control Style
@@ -463,6 +474,25 @@
                                                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'Space Grotesk, sans-serif' }}>{director.name}</div>
                                             </button>
                                         ))}
+                                        <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }}></div>
+                                        <a
+                                            href="directors/index.html"
+                                            style={{
+                                                display: 'block',
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                background: 'transparent',
+                                                color: 'var(--accent)',
+                                                fontSize: '13px',
+                                                textAlign: 'center',
+                                                textDecoration: 'none',
+                                                fontWeight: 600
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = 'var(--bg-tertiary)'}
+                                            onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                        >
+                                            View All Directors →
+                                        </a>
                                     </div>
                                 )}
                             </div>
@@ -1054,7 +1084,7 @@
                             marginBottom: '32px',
                             lineHeight: 1.8
                         }}>
-                            A Saudi initiative dedicated to studying and archiving the visual works of directors based in Saudi Arabia. This platform serves as a cinematic reference library, preserving and showcasing the unique visual storytelling of Saudi filmmakers.
+                            Berwaz, a visual study platform for filmmakers, students, and researchers to analyze Saudi-directed films through curated scene loops.
                         </p>
 
                         <div style={{

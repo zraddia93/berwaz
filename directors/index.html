@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directors - برواز</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'HT Moshreq Pro';
+            src: url('../HTMoshreqPro-Bold.otf') format('opentype');
+            font-weight: 700;
+        }
+        @font-face {
+            font-family: 'HT Moshreq Pro';
+            src: url('../HTMoshreqPro-Regular.otf') format('opentype');
+            font-weight: 400;
+        }
+
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111111;
+            --bg-elevated: #161616;
+            --text-primary: #ffd900;
+            --text-secondary: #cca800;
+            --text-tertiary: #997e00;
+            --accent: #ffd900;
+            --accent-hover: #e6c300;
+            --border: rgba(255, 217, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="../frames-data.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // Directors data with Arabic names and Vimeo placeholders
+        const DIRECTORS_DATA = [
+            {
+                id: "abdullah-algallaf",
+                name: "Abdullah Algallaf",
+                nameAr: "عبدالله القلاف",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "abdullah-alkhamees",
+                name: "Abdullah Alkhamees",
+                nameAr: "عبدالله الخميس",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "abdullah-majed",
+                name: "Abdullah Majed",
+                nameAr: "عبدالله ماجد",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "abdulrahman-elsingergy",
+                name: "Abdulrahman Elsingergy",
+                nameAr: "عبدالرحمن السنجري",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "ali-alkalthami",
+                name: "Ali Alkalthami",
+                nameAr: "علي الكلثمي",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "bader-nour",
+                name: "Bader Nour",
+                nameAr: "بدر نور",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "fahad-alammari",
+                name: "Fahad Alammari",
+                nameAr: "فهد العماري",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "majed-aleissa",
+                name: "Majed Aleissa",
+                nameAr: "ماجد العيسى",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "malek-alhammami",
+                name: "Malek Alhammami",
+                nameAr: "مالك الحمامي",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "meshal-aljasser",
+                name: "Meshal Aljasser",
+                nameAr: "مشعل الجاسر",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "mishary-almazyad",
+                name: "Mishary Almazyad",
+                nameAr: "مشاري المزيد",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "mohammad-alhamdan",
+                name: "Mohammad Alhamdan",
+                nameAr: "محمد الحمدان",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "mohammad-alharthi",
+                name: "Mohammad Alharthi",
+                nameAr: "محمد الحارثي",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "mohammad-almulla",
+                name: "Mohammad Almulla",
+                nameAr: "محمد الملا",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            },
+            {
+                id: "mohammad-alsuliman",
+                name: "Mohammad Alsuliman",
+                nameAr: "محمد السليمان",
+                bio: "Saudi filmmaker and director.",
+                vimeo: "https://vimeo.com/placeholder",
+                instagram: "",
+                twitter: ""
+            }
+        ];
+
+        const CONTENT_PATH = 'https://pub-b8befece66bc4203bab663b2ed292cd4.r2.dev/content/';
+
+        // Get director from URL hash
+        const getDirectorFromHash = () => {
+            const hash = window.location.hash.slice(1);
+            return DIRECTORS_DATA.find(d => d.id === hash);
+        };
+
+        // Header Component
+        const Header = ({ onBack }) => (
+            <header style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 100,
+                background: 'rgba(0,0,0,0.9)',
+                backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid var(--border)',
+                padding: '16px 32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    <a href="../index.html" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                        <svg width="50" height="32" viewBox="0 0 700 450" fill="none">
+                            <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
+                            <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
+                            <rect x="295" y="340" width="50" height="50" transform="rotate(45 320 365)" fill="#ffd900"/>
+                        </svg>
+                        <span style={{
+                            fontFamily: "'HT Moshreq Pro', sans-serif",
+                            fontSize: '24px',
+                            fontWeight: 700,
+                            color: 'var(--accent)'
+                        }}>برواز</span>
+                    </a>
+                </div>
+
+                {onBack && (
+                    <button
+                        onClick={onBack}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 20px',
+                            background: 'transparent',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        ← Back to Directors
+                    </button>
+                )}
+            </header>
+        );
+
+        // Directors List Component
+        const DirectorsList = ({ onSelectDirector }) => {
+            // Get frame counts per director
+            const directorFrameCounts = useMemo(() => {
+                const counts = {};
+                if (typeof FRAMES_DATA !== 'undefined') {
+                    FRAMES_DATA.forEach(frame => {
+                        const director = frame.director;
+                        counts[director] = (counts[director] || 0) + 1;
+                    });
+                }
+                return counts;
+            }, []);
+
+            return (
+                <div style={{ padding: '48px 32px', maxWidth: '1400px', margin: '0 auto' }}>
+                    <h1 style={{
+                        fontSize: '48px',
+                        fontFamily: "'HT Moshreq Pro', sans-serif",
+                        color: 'var(--accent)',
+                        marginBottom: '16px',
+                        textAlign: 'center'
+                    }}>
+                        المخرجين
+                    </h1>
+                    <p style={{
+                        fontSize: '18px',
+                        color: 'var(--text-secondary)',
+                        marginBottom: '48px',
+                        textAlign: 'center'
+                    }}>
+                        Directors
+                    </p>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                        gap: '24px'
+                    }}>
+                        {DIRECTORS_DATA.map(director => (
+                            <div
+                                key={director.id}
+                                onClick={() => onSelectDirector(director)}
+                                style={{
+                                    background: 'var(--bg-secondary)',
+                                    borderRadius: '16px',
+                                    padding: '32px',
+                                    border: '1px solid var(--border)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s',
+                                    textAlign: 'center'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.borderColor = 'var(--accent)';
+                                    e.currentTarget.style.transform = 'translateY(-4px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.borderColor = 'var(--border)';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                }}
+                            >
+                                {/* Avatar placeholder */}
+                                <div style={{
+                                    width: '80px',
+                                    height: '80px',
+                                    borderRadius: '50%',
+                                    background: 'var(--bg-tertiary)',
+                                    border: '2px solid var(--accent)',
+                                    margin: '0 auto 20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '32px',
+                                    color: 'var(--accent)'
+                                }}>
+                                    {director.name.charAt(0)}
+                                </div>
+
+                                <h3 style={{
+                                    fontFamily: "'HT Moshreq Pro', sans-serif",
+                                    fontSize: '24px',
+                                    color: 'var(--accent)',
+                                    marginBottom: '8px'
+                                }}>
+                                    {director.nameAr}
+                                </h3>
+
+                                <p style={{
+                                    fontSize: '14px',
+                                    color: 'var(--text-secondary)',
+                                    marginBottom: '16px'
+                                }}>
+                                    {director.name}
+                                </p>
+
+                                <div style={{
+                                    fontSize: '13px',
+                                    color: 'var(--text-tertiary)',
+                                    padding: '8px 16px',
+                                    background: 'var(--bg-tertiary)',
+                                    borderRadius: '20px',
+                                    display: 'inline-block'
+                                }}>
+                                    {directorFrameCounts[director.name] || 0} frames
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // Director Profile Component
+        const DirectorProfile = ({ director, onBack }) => {
+            // Get director's works from FRAMES_DATA
+            const directorWorks = useMemo(() => {
+                if (typeof FRAMES_DATA === 'undefined') return [];
+
+                const works = {};
+                FRAMES_DATA.filter(f => f.director === director.name).forEach(frame => {
+                    const source = frame.source;
+                    if (!works[source]) {
+                        works[source] = {
+                            title: source,
+                            year: frame.year,
+                            frames: [],
+                            vimeoLink: "https://vimeo.com/placeholder" // Placeholder
+                        };
+                    }
+                    works[source].frames.push(frame);
+                });
+
+                return Object.values(works).sort((a, b) => b.year - a.year);
+            }, [director]);
+
+            const totalFrames = directorWorks.reduce((sum, work) => sum + work.frames.length, 0);
+
+            return (
+                <div style={{ minHeight: '100vh' }}>
+                    {/* Hero Section */}
+                    <div style={{
+                        padding: '64px 32px',
+                        background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
+                        textAlign: 'center',
+                        borderBottom: '1px solid var(--border)'
+                    }}>
+                        {/* Avatar */}
+                        <div style={{
+                            width: '120px',
+                            height: '120px',
+                            borderRadius: '50%',
+                            background: 'var(--bg-tertiary)',
+                            border: '3px solid var(--accent)',
+                            margin: '0 auto 24px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '48px',
+                            color: 'var(--accent)'
+                        }}>
+                            {director.name.charAt(0)}
+                        </div>
+
+                        <h1 style={{
+                            fontFamily: "'HT Moshreq Pro', sans-serif",
+                            fontSize: '48px',
+                            color: 'var(--accent)',
+                            marginBottom: '8px'
+                        }}>
+                            {director.nameAr}
+                        </h1>
+
+                        <p style={{
+                            fontSize: '20px',
+                            color: 'var(--text-secondary)',
+                            marginBottom: '24px'
+                        }}>
+                            {director.name}
+                        </p>
+
+                        <p style={{
+                            fontSize: '16px',
+                            color: 'var(--text-tertiary)',
+                            maxWidth: '600px',
+                            margin: '0 auto 32px',
+                            lineHeight: 1.6
+                        }}>
+                            {director.bio}
+                        </p>
+
+                        {/* Stats */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: '48px'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--accent)' }}>
+                                    {directorWorks.length}
+                                </div>
+                                <div style={{ fontSize: '14px', color: 'var(--text-tertiary)' }}>Projects</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--accent)' }}>
+                                    {totalFrames}
+                                </div>
+                                <div style={{ fontSize: '14px', color: 'var(--text-tertiary)' }}>Frames</div>
+                            </div>
+                        </div>
+
+                        {/* Social Links */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: '16px',
+                            marginTop: '32px'
+                        }}>
+                            {director.vimeo && (
+                                <a
+                                    href={director.vimeo}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: 'var(--accent)',
+                                        color: '#000',
+                                        borderRadius: '8px',
+                                        textDecoration: 'none',
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/>
+                                    </svg>
+                                    Vimeo
+                                </a>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Works Section */}
+                    <div style={{ padding: '48px 32px', maxWidth: '1400px', margin: '0 auto' }}>
+                        <h2 style={{
+                            fontSize: '28px',
+                            color: 'var(--accent)',
+                            marginBottom: '32px',
+                            fontFamily: "'HT Moshreq Pro', sans-serif"
+                        }}>
+                            الأعمال
+                            <span style={{
+                                fontSize: '18px',
+                                color: 'var(--text-secondary)',
+                                marginRight: '12px',
+                                fontFamily: 'Inter, sans-serif'
+                            }}>Works</span>
+                        </h2>
+
+                        {directorWorks.length === 0 ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '64px',
+                                color: 'var(--text-tertiary)'
+                            }}>
+                                No works available yet. Coming soon!
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                                gap: '24px'
+                            }}>
+                                {directorWorks.map((work, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: '16px',
+                                            overflow: 'hidden',
+                                            border: '1px solid var(--border)',
+                                            transition: 'all 0.3s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = 'var(--accent)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = 'var(--border)';
+                                        }}
+                                    >
+                                        {/* Thumbnail - use first frame */}
+                                        <div style={{
+                                            position: 'relative',
+                                            paddingTop: '56.25%',
+                                            background: 'var(--bg-tertiary)'
+                                        }}>
+                                            {work.frames[0] && (
+                                                <img
+                                                    src={CONTENT_PATH + encodeURI(work.frames[0].file)}
+                                                    alt={work.title}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover'
+                                                    }}
+                                                />
+                                            )}
+                                            <div style={{
+                                                position: 'absolute',
+                                                bottom: '12px',
+                                                right: '12px',
+                                                background: 'rgba(0,0,0,0.8)',
+                                                padding: '4px 10px',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                color: 'var(--text-secondary)'
+                                            }}>
+                                                {work.frames.length} frames
+                                            </div>
+                                        </div>
+
+                                        {/* Info */}
+                                        <div style={{ padding: '20px' }}>
+                                            <h3 style={{
+                                                fontSize: '18px',
+                                                color: 'var(--text-primary)',
+                                                marginBottom: '8px',
+                                                fontWeight: 600
+                                            }}>
+                                                {work.title}
+                                            </h3>
+
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <span style={{
+                                                    fontSize: '14px',
+                                                    color: 'var(--text-tertiary)'
+                                                }}>
+                                                    {work.year}
+                                                </span>
+
+                                                <a
+                                                    href={work.vimeoLink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        background: 'var(--bg-tertiary)',
+                                                        border: '1px solid var(--border)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-secondary)',
+                                                        textDecoration: 'none',
+                                                        fontSize: '13px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.borderColor = 'var(--accent)';
+                                                        e.currentTarget.style.color = 'var(--accent)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.borderColor = 'var(--border)';
+                                                        e.currentTarget.style.color = 'var(--text-secondary)';
+                                                    }}
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/>
+                                                    </svg>
+                                                    Watch
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* View Frames Link */}
+                        <div style={{ textAlign: 'center', marginTop: '48px' }}>
+                            <a
+                                href={`../index.html?director=${encodeURIComponent(director.name)}`}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '16px 32px',
+                                    background: 'var(--accent)',
+                                    color: '#000',
+                                    borderRadius: '8px',
+                                    textDecoration: 'none',
+                                    fontSize: '16px',
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                View All Frames →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App
+        const App = () => {
+            const [selectedDirector, setSelectedDirector] = useState(null);
+
+            useEffect(() => {
+                // Check URL hash on load
+                const director = getDirectorFromHash();
+                if (director) {
+                    setSelectedDirector(director);
+                }
+
+                // Listen for hash changes
+                const handleHashChange = () => {
+                    const director = getDirectorFromHash();
+                    setSelectedDirector(director || null);
+                };
+
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+
+            const handleSelectDirector = (director) => {
+                window.location.hash = director.id;
+                setSelectedDirector(director);
+            };
+
+            const handleBack = () => {
+                window.location.hash = '';
+                setSelectedDirector(null);
+            };
+
+            return (
+                <div>
+                    <Header onBack={selectedDirector ? handleBack : null} />
+                    {selectedDirector ? (
+                        <DirectorProfile director={selectedDirector} onBack={handleBack} />
+                    ) : (
+                        <DirectorsList onSelectDirector={handleSelectDirector} />
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
