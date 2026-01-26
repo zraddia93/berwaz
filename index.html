@@ -1103,9 +1103,24 @@
                 };
             }, [onClose]);
 
-            // Get a curated selection of featured frames (random 6 from the collection)
+            // Get a curated selection of featured frames (changes once per day)
             const featuredFrames = useMemo(() => {
-                const shuffled = [...frames].sort(() => Math.random() - 0.5);
+                // Use today's date as seed for consistent daily selection
+                const today = new Date();
+                const dateSeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+
+                // Seeded random function
+                const seededRandom = (seed) => {
+                    const x = Math.sin(seed) * 10000;
+                    return x - Math.floor(x);
+                };
+
+                // Shuffle with seeded random
+                const shuffled = [...frames].map((frame, i) => ({
+                    frame,
+                    sort: seededRandom(dateSeed + i)
+                })).sort((a, b) => a.sort - b.sort).map(item => item.frame);
+
                 return shuffled.slice(0, 6);
             }, [frames]);
 
