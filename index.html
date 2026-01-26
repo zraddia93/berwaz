@@ -1118,7 +1118,7 @@
                         zIndex: 200,
                         background: 'rgba(0,0,0,0.95)',
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         justifyContent: 'center',
                         padding: '40px',
                         animation: 'fadeIn 0.3s ease-out',
@@ -1128,26 +1128,28 @@
                     <div
                         onClick={(e) => e.stopPropagation()}
                         style={{
-                            maxWidth: '1400px',
+                            maxWidth: '1200px',
                             width: '100%',
                             background: 'var(--bg-secondary)',
                             borderRadius: '16px',
-                            padding: '48px',
+                            padding: '32px',
                             border: '1px solid var(--border)',
-                            animation: 'scaleIn 0.3s ease-out'
+                            animation: 'scaleIn 0.3s ease-out',
+                            marginTop: '20px',
+                            marginBottom: '20px'
                         }}
                     >
-                        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                             <h2 style={{
-                                fontSize: '28px',
+                                fontSize: '24px',
                                 fontWeight: 700,
                                 color: 'var(--accent)',
-                                marginBottom: '8px'
+                                marginBottom: '4px'
                             }}>
                                 Featured Visuals
                             </h2>
                             <p style={{
-                                fontSize: '14px',
+                                fontSize: '13px',
                                 color: 'var(--text-secondary)'
                             }}>
                                 Curated frames from our collection
@@ -1157,7 +1159,7 @@
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: '24px'
+                            gap: '16px'
                         }}>
                             {featuredFrames.map((frame, index) => (
                                 <div
@@ -1197,11 +1199,11 @@
                             ))}
                         </div>
 
-                        <div style={{ textAlign: 'center', marginTop: '32px' }}>
+                        <div style={{ textAlign: 'center', marginTop: '24px' }}>
                             <button
                                 onClick={onClose}
                                 style={{
-                                    padding: '12px 32px',
+                                    padding: '10px 28px',
                                     background: 'var(--accent)',
                                     color: 'var(--bg-primary)',
                                     border: 'none',
