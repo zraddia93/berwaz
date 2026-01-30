@@ -175,9 +175,7 @@
         // FRAMES_DATA is loaded from external frames-data.js file
 
         const FILTER_TAGS = {
-            mood: ["Mysterious", "Epic", "Melancholic", "Intense", "Romantic", "Tense", "Nostalgic", "Contemplative"],
-            lighting: ["Natural", "Neon", "Golden Hour", "Low-Key", "High-Key", "Silhouette", "Practical"],
-            composition: ["Wide Shot", "Close-Up", "Medium Shot", "Extreme Wide", "Two-Shot", "POV"]
+            projects: ["Saudi National Day", "Saudi Founding Day", "Commercial Films", "Branding Films"]
         };
 
         // Minimal Icon Components
@@ -1481,11 +1479,14 @@
 
                 if (activeTags.length > 0) {
                     result = result.filter(f =>
-                        activeTags.some(tag =>
-                            f.mood.toLowerCase().includes(tag.toLowerCase()) ||
-                            f.lighting.toLowerCase().includes(tag.toLowerCase()) ||
-                            f.tags.some(t => t.toLowerCase().includes(tag.toLowerCase()))
-                        )
+                        activeTags.some(tag => {
+                            const tagLower = tag.toLowerCase();
+                            // Match project types against source field
+                            if (f.source && f.source.toLowerCase().includes(tagLower)) return true;
+                            // Also check tags array for flexibility
+                            if (f.tags && f.tags.some(t => t.toLowerCase().includes(tagLower))) return true;
+                            return false;
+                        })
                     );
                 }
 
