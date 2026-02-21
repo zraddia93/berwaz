@@ -40,6 +40,7 @@ DIRECTORS = [
     "Ali Alkalthami",
     "Bader Nour",
     "Fahad Alammari",
+    "Faisal Alobrah",
     "Majed Aleissa",
     "Malek Alhammami",
     "Meshal Aljasser",
