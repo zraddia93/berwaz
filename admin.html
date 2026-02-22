@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Berwaz Admin Panel</title>
+    <link rel="icon" type="image/png" href="brand_mark.png">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0a0a; --bg-secondary: #141414; --bg-tertiary: #1a1a1a;
+            --border: #2a2a2a; --accent: #D4A853; --accent-hover: #e0b96a;
+            --text-primary: #f0f0f0; --text-secondary: #888; --text-tertiary: #555;
+            --danger: #ff4444; --success: #44bb44;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text-primary); }
+        input, textarea, select, button { font-family: inherit; }
+        input, textarea, select {
+            background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary);
+            padding: 10px 14px; border-radius: 8px; font-size: 14px; outline: none; width: 100%;
+        }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+        textarea { resize: vertical; min-height: 80px; }
+        select { cursor: pointer; }
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--accent); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { opacity: 0.8; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+        td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        tr:hover { background: var(--bg-secondary); }
+        .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 500; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); }
+        .badge-accent { background: rgba(212,168,83,0.15); color: var(--accent); border-color: rgba(212,168,83,0.3); }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+        }
+        .modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 32px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; }
+        .modal h2 { margin-bottom: 24px; font-size: 22px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; border-radius: 10px;
+            font-size: 14px; font-weight: 500; z-index: 9999; animation: slideIn 0.3s ease-out;
+        }
+        .toast-success { background: var(--success); color: #fff; }
+        .toast-error { background: var(--danger); color: #fff; }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .stat-card { text-align: center; padding: 24px; }
+        .stat-card .number { font-size: 36px; font-weight: 700; color: var(--accent); }
+        .stat-card .label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+        .search-bar { position: relative; }
+        .search-bar input { padding-left: 40px; }
+        .search-bar svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); }
+        .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+        .tab { padding: 12px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none; }
+        .tab:hover { color: var(--text-primary); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .pagination { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 20px; }
+        .pagination button { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+        .tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 100px; font-size: 12px; margin: 2px; }
+        .tag-chip button { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+        .tag-chip button:hover { color: var(--danger); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback } = React;
+
+        const API = 'http://localhost:8420/api';
+
+        // ═══════════════════════════════════════
+        // API Helper
+        // ═══════════════════════════════════════
+        const api = {
+            async getConfig() {
+                const res = await fetch(`${API}/config`);
+                if (!res.ok) throw new Error('Failed to load config');
+                return res.json();
+            },
+            async saveConfig(config) {
+                const res = await fetch(`${API}/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                if (!res.ok) throw new Error('Failed to save config');
+                return res.json();
+            },
+            async publish() {
+                const res = await fetch(`${API}/publish`, { method: 'POST' });
+                if (!res.ok) throw new Error('Failed to publish');
+                return res.json();
+            }
+        };
+
+        // ═══════════════════════════════════════
+        // Toast Notification
+        // ═══════════════════════════════════════
+        const Toast = ({ message, type, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, []);
+            return <div className={`toast toast-${type}`}>{message}</div>;
+        };
+
+        // ═══════════════════════════════════════
+        // Modal Component
+        // ═══════════════════════════════════════
+        const Modal = ({ title, onClose, children }) => (
+            <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+                <div className="modal">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <h2 style={{ margin: 0 }}>{title}</h2>
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 20 }}>✕</button>
+                    </div>
+                    {children}
+                </div>
+            </div>
+        );
+
+        // ═══════════════════════════════════════
+        // Tag Input Component
+        // ═══════════════════════════════════════
+        const TagInput = ({ tags, onChange }) => {
+            const [input, setInput] = useState('');
+            const addTag = () => {
+                const newTags = input.split(',').map(t => t.trim()).filter(t => t && !tags.includes(t));
+                if (newTags.length) onChange([...tags, ...newTags]);
+                setInput('');
+            };
+            return (
+                <div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: tags.length ? 8 : 0 }}>
+                        {tags.map(tag => (
+                            <span key={tag} className="tag-chip">
+                                {tag}
+                                <button onClick={() => onChange(tags.filter(t => t !== tag))}>×</button>
+                            </span>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                            placeholder="Add tags (comma separated)"
+                            style={{ flex: 1 }}
+                        />
+                        <button className="btn btn-secondary btn-sm" onClick={addTag}>Add</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // Color Palette Input
+        // ═══════════════════════════════════════
+        const ColorInput = ({ colors, onChange }) => (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {colors.map((c, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input
+                            type="color"
+                            value={c}
+                            onChange={e => { const nc = [...colors]; nc[i] = e.target.value; onChange(nc); }}
+                            style={{ width: 36, height: 36, padding: 2, cursor: 'pointer', borderRadius: 6 }}
+                        />
+                        <input
+                            value={c}
+                            onChange={e => { const nc = [...colors]; nc[i] = e.target.value; onChange(nc); }}
+                            style={{ width: 80, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}
+                        />
+                    </div>
+                ))}
+            </div>
+        );
+
+        // ═══════════════════════════════════════
+        // DASHBOARD TAB
+        // ═══════════════════════════════════════
+        const Dashboard = ({ config }) => {
+            const stats = useMemo(() => {
+                const frames = config.frames || [];
+                const directors = config.directors || [];
+                const sources = [...new Set(frames.map(f => f.source).filter(Boolean))];
+                const allTags = [...new Set(frames.flatMap(f => f.tags || []))];
+                const byDirector = {};
+                frames.forEach(f => { byDirector[f.director] = (byDirector[f.director] || 0) + 1; });
+                return { frames: frames.length, directors: directors.length, sources: sources.length, tags: allTags.length, byDirector };
+            }, [config]);
+
+            return (
+                <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+                        {[
+                            { n: stats.frames, l: 'Total Frames' },
+                            { n: stats.directors, l: 'Directors' },
+                            { n: stats.sources, l: 'Projects' },
+                            { n: stats.tags, l: 'Unique Tags' }
+                        ].map(s => (
+                            <div key={s.l} className="card stat-card">
+                                <div className="number">{s.n}</div>
+                                <div className="label">{s.l}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="card">
+                        <h3 style={{ marginBottom: 16, fontSize: 16 }}>Frames by Director</h3>
+                        {Object.entries(stats.byDirector).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
+                            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                <span style={{ width: 180, fontSize: 13, color: 'var(--text-secondary)' }}>{name}</span>
+                                <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
+                                    <div style={{ width: `${(count / Math.max(...Object.values(stats.byDirector))) * 100}%`, height: '100%', background: 'var(--accent)', borderRadius: 4 }} />
+                                </div>
+                                <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-secondary)', width: 40, textAlign: 'right' }}>{count}</span>
+                            </div>
+                        ))}
+                        {config.directors?.filter(d => !stats.byDirector[d.name]).map(d => (
+                            <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, opacity: 0.4 }}>
+                                <span style={{ width: 180, fontSize: 13, color: 'var(--text-secondary)' }}>{d.name}</span>
+                                <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 4 }} />
+                                <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-secondary)', width: 40, textAlign: 'right' }}>0</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // DIRECTORS TAB
+        // ═══════════════════════════════════════
+        const DirectorsTab = ({ config, setConfig, showToast }) => {
+            const [editDirector, setEditDirector] = useState(null);
+            const [showAdd, setShowAdd] = useState(false);
+
+            const frameCounts = useMemo(() => {
+                const counts = {};
+                (config.frames || []).forEach(f => { counts[f.director] = (counts[f.director] || 0) + 1; });
+                return counts;
+            }, [config.frames]);
+
+            const saveDirector = (director, isNew) => {
+                const updated = { ...config };
+                if (isNew) {
+                    director.id = director.name.toLowerCase().replace(/ /g, '-');
+                    updated.directors = [...(updated.directors || []), director];
+                } else {
+                    updated.directors = updated.directors.map(d => d.id === director.id ? director : d);
+                }
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast(isNew ? 'Director added' : 'Director updated', 'success'));
+                setEditDirector(null);
+                setShowAdd(false);
+            };
+
+            const deleteDirector = (id) => {
+                const name = config.directors.find(d => d.id === id)?.name;
+                const count = frameCounts[name] || 0;
+                if (count > 0 && !confirm(`"${name}" has ${count} frames. Delete anyway?`)) return;
+                if (!confirm(`Delete director "${name}"?`)) return;
+                const updated = { ...config, directors: config.directors.filter(d => d.id !== id) };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Director deleted', 'success'));
+            };
+
+            const DirectorForm = ({ director, onSave, onCancel, isNew }) => {
+                const [form, setForm] = useState(director || { name: '', nameAr: '', bio: 'Saudi filmmaker and director.', vimeo: '', instagram: '', twitter: '' });
+                const set = (k, v) => setForm({ ...form, [k]: v });
+                return (
+                    <Modal title={isNew ? 'Add Director' : 'Edit Director'} onClose={onCancel}>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Name (English)</label>
+                                <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Full Name" />
+                            </div>
+                            <div className="form-group">
+                                <label>Name (Arabic)</label>
+                                <input value={form.nameAr} onChange={e => set('nameAr', e.target.value)} placeholder="الاسم بالعربي" dir="rtl" />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Bio</label>
+                            <textarea value={form.bio} onChange={e => set('bio', e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label>Vimeo URL</label>
+                            <input value={form.vimeo} onChange={e => set('vimeo', e.target.value)} placeholder="https://vimeo.com/..." />
+                        </div>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Instagram</label>
+                                <input value={form.instagram} onChange={e => set('instagram', e.target.value)} placeholder="@handle" />
+                            </div>
+                            <div className="form-group">
+                                <label>Twitter / X</label>
+                                <input value={form.twitter} onChange={e => set('twitter', e.target.value)} placeholder="@handle" />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+                            <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                            <button className="btn btn-primary" onClick={() => onSave(form, isNew)} disabled={!form.name || !form.nameAr}>
+                                {isNew ? 'Add Director' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </Modal>
+                );
+            };
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <h3 style={{ fontSize: 16 }}>{config.directors?.length || 0} Directors</h3>
+                        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Director</button>
+                    </div>
+
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Arabic</th>
+                                    <th>Frames</th>
+                                    <th>Vimeo</th>
+                                    <th>Social</th>
+                                    <th style={{ width: 120 }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(config.directors || []).map(d => (
+                                    <tr key={d.id}>
+                                        <td style={{ fontWeight: 500 }}>{d.name}</td>
+                                        <td dir="rtl" style={{ fontFamily: 'system-ui' }}>{d.nameAr}</td>
+                                        <td><span className={frameCounts[d.name] ? "badge badge-accent" : "badge"}>{frameCounts[d.name] || 0}</span></td>
+                                        <td style={{ color: d.vimeo && !d.vimeo.includes('placeholder') ? 'var(--success)' : 'var(--text-tertiary)', fontSize: 13 }}>
+                                            {d.vimeo && !d.vimeo.includes('placeholder') ? '✓' : '—'}
+                                        </td>
+                                        <td style={{ fontSize: 13 }}>
+                                            {[d.instagram && 'IG', d.twitter && 'X'].filter(Boolean).join(', ') || '—'}
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <button className="btn btn-secondary btn-sm" onClick={() => setEditDirector(d)}>Edit</button>
+                                                <button className="btn btn-danger btn-sm" onClick={() => deleteDirector(d.id)}>Del</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {showAdd && <DirectorForm isNew onSave={saveDirector} onCancel={() => setShowAdd(false)} />}
+                    {editDirector && <DirectorForm director={editDirector} onSave={saveDirector} onCancel={() => setEditDirector(null)} />}
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // FRAMES TAB
+        // ═══════════════════════════════════════
+        const FramesTab = ({ config, setConfig, showToast }) => {
+            const [search, setSearch] = useState('');
+            const [filterDir, setFilterDir] = useState('');
+            const [filterSource, setFilterSource] = useState('');
+            const [page, setPage] = useState(0);
+            const [editFrame, setEditFrame] = useState(null);
+            const [selected, setSelected] = useState(new Set());
+            const [bulkAction, setBulkAction] = useState(null);
+            const PER_PAGE = 50;
+
+            const sources = useMemo(() => [...new Set((config.frames || []).map(f => f.source).filter(Boolean))].sort(), [config.frames]);
+
+            const filtered = useMemo(() => {
+                let frames = config.frames || [];
+                if (search) {
+                    const q = search.toLowerCase();
+                    frames = frames.filter(f =>
+                        (f.source || '').toLowerCase().includes(q) ||
+                        (f.director || '').toLowerCase().includes(q) ||
+                        (f.title || '').toLowerCase().includes(q) ||
+                        (f.tags || []).some(t => t.toLowerCase().includes(q)) ||
+                        (f.file || '').toLowerCase().includes(q)
+                    );
+                }
+                if (filterDir) frames = frames.filter(f => f.director === filterDir);
+                if (filterSource) frames = frames.filter(f => f.source === filterSource);
+                return frames;
+            }, [config.frames, search, filterDir, filterSource]);
+
+            const paged = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+            const totalPages = Math.ceil(filtered.length / PER_PAGE);
+
+            const saveFrame = (frame) => {
+                const updated = { ...config, frames: config.frames.map(f => f.id === frame.id ? frame : f) };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Frame updated', 'success'));
+                setEditFrame(null);
+            };
+
+            const deleteFrame = (id) => {
+                if (!confirm('Delete this frame?')) return;
+                const updated = { ...config, frames: config.frames.filter(f => f.id !== id) };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Frame deleted', 'success'));
+            };
+
+            const bulkUpdate = (field, value) => {
+                const updated = { ...config, frames: config.frames.map(f => {
+                    if (selected.has(f.id)) {
+                        if (field === 'tags_add') return { ...f, tags: [...new Set([...(f.tags || []), ...value])] };
+                        if (field === 'tags_remove') return { ...f, tags: (f.tags || []).filter(t => !value.includes(t)) };
+                        return { ...f, [field]: value };
+                    }
+                    return f;
+                })};
+                setConfig(updated);
+                api.saveConfig(updated).then(() => {
+                    showToast(`Updated ${selected.size} frames`, 'success');
+                    setSelected(new Set());
+                    setBulkAction(null);
+                });
+            };
+
+            const toggleSelect = (id) => {
+                const s = new Set(selected);
+                s.has(id) ? s.delete(id) : s.add(id);
+                setSelected(s);
+            };
+
+            const selectAll = () => {
+                if (selected.size === filtered.length) setSelected(new Set());
+                else setSelected(new Set(filtered.map(f => f.id)));
+            };
+
+            const FrameForm = ({ frame, onSave, onCancel }) => {
+                const [form, setForm] = useState({ ...frame });
+                const set = (k, v) => setForm({ ...form, [k]: v });
+                return (
+                    <Modal title={`Edit Frame #${frame.id}`} onClose={onCancel}>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Source / Project</label>
+                                <input value={form.source} onChange={e => set('source', e.target.value)} />
+                            </div>
+                            <div className="form-group">
+                                <label>Year</label>
+                                <input type="number" value={form.year} onChange={e => set('year', parseInt(e.target.value) || 2024)} />
+                            </div>
+                        </div>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Director</label>
+                                <select value={form.director} onChange={e => set('director', e.target.value)}>
+                                    {(config.directors || []).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>DP / Cinematographer</label>
+                                <input value={form.dp || ''} onChange={e => set('dp', e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Mood</label>
+                                <input value={form.mood || ''} onChange={e => set('mood', e.target.value)} placeholder="Cinematic, Dramatic, etc." />
+                            </div>
+                            <div className="form-group">
+                                <label>Lighting</label>
+                                <input value={form.lighting || ''} onChange={e => set('lighting', e.target.value)} placeholder="Natural, Golden Hour, etc." />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Aspect Ratio</label>
+                            <select value={form.aspect || '16:9'} onChange={e => set('aspect', e.target.value)}>
+                                {['16:9', '2.20:1', '2.39:1', '4:3', '1:1', '9:16'].map(a => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Color Palette</label>
+                            <ColorInput colors={form.color || ['#8B7355', '#D4A574', '#1A1A1A']} onChange={c => set('color', c)} />
+                        </div>
+                        <div className="form-group">
+                            <label>Tags</label>
+                            <TagInput tags={form.tags || []} onChange={t => set('tags', t)} />
+                        </div>
+                        <div className="form-group">
+                            <label>File Path</label>
+                            <input value={form.file || ''} onChange={e => set('file', e.target.value)} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+                            <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                            <button className="btn btn-primary" onClick={() => onSave(form)}>Save Changes</button>
+                        </div>
+                    </Modal>
+                );
+            };
+
+            const BulkModal = () => {
+                const [field, setField] = useState('mood');
+                const [value, setValue] = useState('');
+                const [tagValue, setTagValue] = useState('');
+                return (
+                    <Modal title={`Bulk Edit (${selected.size} frames)`} onClose={() => setBulkAction(null)}>
+                        <div className="form-group">
+                            <label>Field to Update</label>
+                            <select value={field} onChange={e => setField(e.target.value)}>
+                                <option value="mood">Mood</option>
+                                <option value="lighting">Lighting</option>
+                                <option value="aspect">Aspect Ratio</option>
+                                <option value="source">Source / Project</option>
+                                <option value="year">Year</option>
+                                <option value="tags_add">Add Tags</option>
+                                <option value="tags_remove">Remove Tags</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Value</label>
+                            {field.startsWith('tags') ? (
+                                <input value={tagValue} onChange={e => setTagValue(e.target.value)} placeholder="Comma-separated tags" />
+                            ) : field === 'aspect' ? (
+                                <select value={value} onChange={e => setValue(e.target.value)}>
+                                    {['16:9', '2.20:1', '2.39:1', '4:3', '1:1', '9:16'].map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            ) : field === 'year' ? (
+                                <input type="number" value={value} onChange={e => setValue(e.target.value)} />
+                            ) : (
+                                <input value={value} onChange={e => setValue(e.target.value)} />
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+                            <button className="btn btn-secondary" onClick={() => setBulkAction(null)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={() => {
+                                if (field.startsWith('tags')) bulkUpdate(field, tagValue.split(',').map(t => t.trim()).filter(Boolean));
+                                else bulkUpdate(field, field === 'year' ? parseInt(value) : value);
+                            }}>Apply to {selected.size} frames</button>
+                        </div>
+                    </Modal>
+                );
+            };
+
+            return (
+                <div>
+                    {/* Toolbar */}
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div className="search-bar" style={{ flex: 1, minWidth: 200 }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Search frames..." />
+                        </div>
+                        <select value={filterDir} onChange={e => { setFilterDir(e.target.value); setPage(0); }} style={{ width: 200 }}>
+                            <option value="">All Directors</option>
+                            {(config.directors || []).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                        </select>
+                        <select value={filterSource} onChange={e => { setFilterSource(e.target.value); setPage(0); }} style={{ width: 200 }}>
+                            <option value="">All Projects</option>
+                            {sources.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {selected.size > 0 && (
+                            <button className="btn btn-primary btn-sm" onClick={() => setBulkAction(true)}>
+                                Bulk Edit ({selected.size})
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                        {filtered.length} frames {search || filterDir || filterSource ? '(filtered)' : ''}
+                        {selected.size > 0 && ` · ${selected.size} selected`}
+                    </div>
+
+                    {/* Table */}
+                    <div className="card" style={{ padding: 0, overflow: 'auto' }}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style={{ width: 40 }}>
+                                        <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={selectAll} style={{ width: 'auto' }} />
+                                    </th>
+                                    <th>ID</th>
+                                    <th>Source / Project</th>
+                                    <th>Director</th>
+                                    <th>Year</th>
+                                    <th>Tags</th>
+                                    <th>Mood</th>
+                                    <th style={{ width: 100 }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paged.map(f => (
+                                    <tr key={f.id}>
+                                        <td><input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleSelect(f.id)} style={{ width: 'auto' }} /></td>
+                                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--text-tertiary)' }}>{f.id}</td>
+                                        <td style={{ fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source || '—'}</td>
+                                        <td style={{ fontSize: 13 }}>{f.director}</td>
+                                        <td style={{ fontSize: 13 }}>{f.year}</td>
+                                        <td style={{ maxWidth: 200 }}>
+                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                {(f.tags || []).slice(0, 3).map(t => <span key={t} className="badge" style={{ fontSize: 10 }}>{t}</span>)}
+                                                {(f.tags || []).length > 3 && <span className="badge" style={{ fontSize: 10 }}>+{f.tags.length - 3}</span>}
+                                            </div>
+                                        </td>
+                                        <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{f.mood || '—'}</td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <button className="btn btn-secondary btn-sm" onClick={() => setEditFrame(f)}>Edit</button>
+                                                <button className="btn btn-danger btn-sm" onClick={() => deleteFrame(f.id)}>Del</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="pagination">
+                            <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>←</button>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Page {page + 1} of {totalPages}</span>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>→</button>
+                        </div>
+                    )}
+
+                    {editFrame && <FrameForm frame={editFrame} onSave={saveFrame} onCancel={() => setEditFrame(null)} />}
+                    {bulkAction && <BulkModal />}
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // PROJECTS TAB
+        // ═══════════════════════════════════════
+        const ProjectsTab = ({ config, setConfig, showToast }) => {
+            const [editProject, setEditProject] = useState(null);
+            const [renameValue, setRenameValue] = useState('');
+
+            const projects = useMemo(() => {
+                const map = {};
+                (config.frames || []).forEach(f => {
+                    if (!f.source) return;
+                    if (!map[f.source]) map[f.source] = { name: f.source, count: 0, directors: new Set(), years: new Set() };
+                    map[f.source].count++;
+                    map[f.source].directors.add(f.director);
+                    map[f.source].years.add(f.year);
+                });
+                return Object.values(map).sort((a, b) => b.count - a.count);
+            }, [config.frames]);
+
+            const renameProject = (oldName, newName) => {
+                if (!newName || oldName === newName) return;
+                const updated = { ...config, frames: config.frames.map(f => f.source === oldName ? { ...f, source: newName } : f) };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast(`Renamed "${oldName}" to "${newName}"`, 'success'));
+                setEditProject(null);
+            };
+
+            return (
+                <div>
+                    <h3 style={{ fontSize: 16, marginBottom: 20 }}>{projects.length} Projects / Sources</h3>
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Frames</th>
+                                    <th>Directors</th>
+                                    <th>Years</th>
+                                    <th style={{ width: 100 }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {projects.map(p => (
+                                    <tr key={p.name}>
+                                        <td style={{ fontWeight: 500 }}>
+                                            {editProject === p.name ? (
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <input value={renameValue} onChange={e => setRenameValue(e.target.value)} style={{ width: 200 }} autoFocus
+                                                        onKeyDown={e => e.key === 'Enter' && renameProject(p.name, renameValue)} />
+                                                    <button className="btn btn-primary btn-sm" onClick={() => renameProject(p.name, renameValue)}>Save</button>
+                                                    <button className="btn btn-secondary btn-sm" onClick={() => setEditProject(null)}>×</button>
+                                                </div>
+                                            ) : p.name}
+                                        </td>
+                                        <td><span className="badge badge-accent">{p.count}</span></td>
+                                        <td style={{ fontSize: 13 }}>{[...p.directors].join(', ')}</td>
+                                        <td style={{ fontSize: 13 }}>{[...p.years].sort().join(', ')}</td>
+                                        <td>
+                                            <button className="btn btn-secondary btn-sm" onClick={() => { setEditProject(p.name); setRenameValue(p.name); }}>Rename</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // TAGS TAB
+        // ═══════════════════════════════════════
+        const TagsTab = ({ config, setConfig, showToast }) => {
+            const [editTag, setEditTag] = useState(null);
+            const [renameValue, setRenameValue] = useState('');
+
+            const tags = useMemo(() => {
+                const map = {};
+                (config.frames || []).forEach(f => {
+                    (f.tags || []).forEach(t => { map[t] = (map[t] || 0) + 1; });
+                });
+                return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+            }, [config.frames]);
+
+            const renameTag = (oldName, newName) => {
+                if (!newName || oldName === newName) return;
+                const updated = { ...config, frames: config.frames.map(f => ({
+                    ...f, tags: (f.tags || []).map(t => t === oldName ? newName : t)
+                }))};
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast(`Renamed tag "${oldName}" to "${newName}"`, 'success'));
+                setEditTag(null);
+            };
+
+            const deleteTag = (name) => {
+                if (!confirm(`Remove tag "${name}" from all frames?`)) return;
+                const updated = { ...config, frames: config.frames.map(f => ({
+                    ...f, tags: (f.tags || []).filter(t => t !== name)
+                }))};
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast(`Tag "${name}" removed`, 'success'));
+            };
+
+            return (
+                <div>
+                    <h3 style={{ fontSize: 16, marginBottom: 20 }}>{tags.length} Tags</h3>
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tag</th>
+                                    <th>Used in</th>
+                                    <th style={{ width: 160 }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tags.map(t => (
+                                    <tr key={t.name}>
+                                        <td style={{ fontWeight: 500 }}>
+                                            {editTag === t.name ? (
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <input value={renameValue} onChange={e => setRenameValue(e.target.value)} style={{ width: 200 }} autoFocus
+                                                        onKeyDown={e => e.key === 'Enter' && renameTag(t.name, renameValue)} />
+                                                    <button className="btn btn-primary btn-sm" onClick={() => renameTag(t.name, renameValue)}>Save</button>
+                                                    <button className="btn btn-secondary btn-sm" onClick={() => setEditTag(null)}>×</button>
+                                                </div>
+                                            ) : t.name}
+                                        </td>
+                                        <td><span className="badge">{t.count} frames</span></td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <button className="btn btn-secondary btn-sm" onClick={() => { setEditTag(t.name); setRenameValue(t.name); }}>Rename</button>
+                                                <button className="btn btn-danger btn-sm" onClick={() => deleteTag(t.name)}>Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {tags.length === 0 && <tr><td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: 32 }}>No tags yet</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // FILTER CATEGORIES TAB
+        // ═══════════════════════════════════════
+        const FiltersTab = ({ config, setConfig, showToast }) => {
+            const [newCategory, setNewCategory] = useState('');
+            const categories = config.filterTags?.projects || [];
+
+            const addCategory = () => {
+                if (!newCategory.trim()) return;
+                const updated = { ...config, filterTags: { ...config.filterTags, projects: [...categories, newCategory.trim()] } };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Category added', 'success'));
+                setNewCategory('');
+            };
+
+            const removeCategory = (cat) => {
+                const updated = { ...config, filterTags: { ...config.filterTags, projects: categories.filter(c => c !== cat) } };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Category removed', 'success'));
+            };
+
+            const renameCategory = (oldName, newName) => {
+                if (!newName) return;
+                const updated = { ...config, filterTags: { ...config.filterTags, projects: categories.map(c => c === oldName ? newName : c) } };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Category renamed', 'success'));
+            };
+
+            return (
+                <div>
+                    <h3 style={{ fontSize: 16, marginBottom: 8 }}>Project Filter Categories</h3>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>These appear as filter buttons on the main website.</p>
+
+                    <div className="card" style={{ marginBottom: 20 }}>
+                        {categories.map((cat, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: i < categories.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                <span style={{ flex: 1, fontWeight: 500 }}>{cat}</span>
+                                <button className="btn btn-secondary btn-sm" onClick={() => {
+                                    const name = prompt('New name:', cat);
+                                    if (name) renameCategory(cat, name);
+                                }}>Rename</button>
+                                <button className="btn btn-danger btn-sm" onClick={() => removeCategory(cat)}>Remove</button>
+                            </div>
+                        ))}
+                        {categories.length === 0 && <p style={{ color: 'var(--text-tertiary)', textAlign: 'center', padding: 20 }}>No categories yet</p>}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="New category name"
+                            onKeyDown={e => e.key === 'Enter' && addCategory()} style={{ flex: 1, maxWidth: 300 }} />
+                        <button className="btn btn-primary" onClick={addCategory}>Add Category</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
+        // MAIN APP
+        // ═══════════════════════════════════════
+        const App = () => {
+            const [config, setConfig] = useState(null);
+            const [tab, setTab] = useState('dashboard');
+            const [toast, setToast] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [publishing, setPublishing] = useState(false);
+
+            const showToast = (message, type = 'success') => setToast({ message, type });
+
+            useEffect(() => {
+                api.getConfig()
+                    .then(data => { setConfig(data); setLoading(false); })
+                    .catch(err => { setError('Could not connect to admin server. Make sure admin-server.py is running.'); setLoading(false); });
+            }, []);
+
+            const handlePublish = async () => {
+                setPublishing(true);
+                try {
+                    await api.publish();
+                    showToast('Published! Website files updated.', 'success');
+                } catch (err) {
+                    showToast('Publish failed: ' + err.message, 'error');
+                }
+                setPublishing(false);
+            };
+
+            if (loading) return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16 }}>
+                    <img src="brand_mark.png" alt="Berwaz" style={{ width: 60, opacity: 0.5 }} />
+                    <p style={{ color: 'var(--text-secondary)' }}>Loading admin panel...</p>
+                </div>
+            );
+
+            if (error) return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16 }}>
+                    <p style={{ color: 'var(--danger)', fontSize: 18 }}>Connection Error</p>
+                    <p style={{ color: 'var(--text-secondary)', maxWidth: 400, textAlign: 'center' }}>{error}</p>
+                    <code style={{ background: 'var(--bg-tertiary)', padding: '12px 20px', borderRadius: 8, fontSize: 13, color: 'var(--accent)' }}>
+                        python3 admin-server.py
+                    </code>
+                </div>
+            );
+
+            const tabs = [
+                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'directors', label: 'Directors' },
+                { id: 'frames', label: 'Frames' },
+                { id: 'projects', label: 'Projects' },
+                { id: 'tags', label: 'Tags' },
+                { id: 'filters', label: 'Filter Categories' }
+            ];
+
+            return (
+                <div>
+                    {/* Header */}
+                    <header style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <img src="brand_mark.png" alt="Berwaz" style={{ width: 32 }} />
+                            <div>
+                                <h1 style={{ fontSize: 18, fontWeight: 600, lineHeight: 1 }}>Berwaz Admin</h1>
+                                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Content Management</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <a href="index.html" target="_blank" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>View Site →</a>
+                            <button className="btn btn-primary" onClick={handlePublish} disabled={publishing}>
+                                {publishing ? 'Publishing...' : 'Publish Changes'}
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Tabs */}
+                    <div style={{ padding: '0 32px', background: 'var(--bg-secondary)' }}>
+                        <div className="tab-bar">
+                            {tabs.map(t => (
+                                <button key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <main style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
+                        {tab === 'dashboard' && <Dashboard config={config} />}
+                        {tab === 'directors' && <DirectorsTab config={config} setConfig={setConfig} showToast={showToast} />}
+                        {tab === 'frames' && <FramesTab config={config} setConfig={setConfig} showToast={showToast} />}
+                        {tab === 'projects' && <ProjectsTab config={config} setConfig={setConfig} showToast={showToast} />}
+                        {tab === 'tags' && <TagsTab config={config} setConfig={setConfig} showToast={showToast} />}
+                        {tab === 'filters' && <FiltersTab config={config} setConfig={setConfig} showToast={showToast} />}
+                    </main>
+
+                    {/* Toast */}
+                    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
