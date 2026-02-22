@@ -78,7 +78,8 @@ def build_config_from_migration():
                 "Commercial Films",
                 "Branding Films"
             ]
-        }
+        },
+        "projectCategories": {}
     }
 
     # Build directors list
