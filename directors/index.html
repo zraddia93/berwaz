@@ -55,6 +55,36 @@
     </style>
 </head>
 <body>
+    <!-- Password Gate -->
+    <div id="password-gate" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0a0a;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:'Space Grotesk',sans-serif;">
+        <img src="brand_mark.png" alt="Berwaz" style="width:80px;margin-bottom:32px;opacity:0.8;">
+        <form id="password-form" style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+            <input id="password-input" type="password" placeholder="Enter password" autocomplete="off" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:12px 24px;border-radius:8px;font-size:16px;width:260px;text-align:center;outline:none;font-family:'Space Grotesk',sans-serif;" onfocus="this.style.borderColor='#D4A853'" onblur="this.style.borderColor='#333'">
+            <button type="submit" style="background:#D4A853;color:#0a0a0a;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Enter</button>
+            <p id="password-error" style="color:#ff4444;font-size:13px;margin:0;display:none;">Incorrect password</p>
+        </form>
+    </div>
+    <script>
+        (function() {
+            if (sessionStorage.getItem('berwaz_auth') === 'true') {
+                document.getElementById('password-gate').style.display = 'none';
+                return;
+            }
+            document.getElementById('root').style.display = 'none';
+            document.getElementById('password-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (document.getElementById('password-input').value === 'berwaz93') {
+                    sessionStorage.setItem('berwaz_auth', 'true');
+                    document.getElementById('password-gate').style.display = 'none';
+                    document.getElementById('root').style.display = '';
+                } else {
+                    document.getElementById('password-error').style.display = 'block';
+                    document.getElementById('password-input').value = '';
+                }
+            });
+        })();
+    </script>
+
     <div id="root"></div>
 
     <script src="../frames-data.js"></script>
