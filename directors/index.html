@@ -541,7 +541,7 @@
                             gap: '16px',
                             marginTop: '32px'
                         }}>
-                            {director.vimeo && (
+                            {director.vimeo && !director.vimeo.includes('placeholder') && (
                                 <a
                                     href={director.vimeo}
                                     target="_blank"

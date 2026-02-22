@@ -1070,7 +1070,7 @@
                                     Color Palette
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    {frame.color.map((c, i) => (
+                                    {(frame.color || []).map((c, i) => (
                                         <div key={i} style={{ textAlign: 'center' }}>
                                             <div style={{
                                                 width: '48px',
@@ -1103,7 +1103,7 @@
                                     Tags
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    {frame.tags.map(tag => (
+                                    {(frame.tags || []).map(tag => (
                                         <button
                                             key={tag}
                                             onClick={() => onFilterByTag(tag)}
@@ -1146,7 +1146,8 @@
                                             const url = window.URL.createObjectURL(blob);
                                             const a = document.createElement('a');
                                             a.href = url;
-                                            a.download = `${frame.title || 'frame'}.${frame.image.split('.').pop()}`;
+                                            const safeName = (frame.title || 'frame').replace(/[\/\\:*?"<>|]/g, '_');
+                                            a.download = `${safeName}.${frame.image.split('.').pop().split('?')[0]}`;
                                             document.body.appendChild(a);
                                             a.click();
                                             document.body.removeChild(a);
@@ -1437,7 +1438,8 @@
         const App = () => {
             // Transform embedded data to include full image path and shuffle on load
             const [frames] = useState(() => {
-                const processed = FRAMES_DATA.map(frame => ({
+                const data = (typeof FRAMES_DATA !== 'undefined') ? FRAMES_DATA : [];
+                const processed = data.map(frame => ({
                     ...frame,
                     image: frame.file ? CONTENT_PATH + encodeURI(frame.file) : frame.image
                 }));
