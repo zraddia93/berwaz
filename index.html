@@ -395,24 +395,7 @@
         // Minimal Header
         const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, onShowAbout, onShowFeatured, frameSize, setFrameSize, headerRef }) => {
             const [focused, setFocused] = useState(false);
-            const [showDirectors, setShowDirectors] = useState(false);
             const [showMobileMenu, setShowMobileMenu] = useState(false);
-            const directorsRef = useRef(null);
-
-            // Close the directors dropdown on outside click / Escape (instead of a fragile blur timeout)
-            useEffect(() => {
-                if (!showDirectors) return;
-                const onDown = (e) => { if (directorsRef.current && !directorsRef.current.contains(e.target)) setShowDirectors(false); };
-                const onKey = (e) => { if (e.key === 'Escape') setShowDirectors(false); };
-                document.addEventListener('mousedown', onDown);
-                document.addEventListener('touchstart', onDown, { passive: true });
-                document.addEventListener('keydown', onKey);
-                return () => {
-                    document.removeEventListener('mousedown', onDown);
-                    document.removeEventListener('touchstart', onDown);
-                    document.removeEventListener('keydown', onKey);
-                };
-            }, [showDirectors]);
 
             return (
                 <header ref={headerRef} style={{
@@ -563,97 +546,30 @@
                                 About
                             </button>
 
-                            {/* Directors Dropdown */}
-                            <div ref={directorsRef} style={{ position: 'relative' }}>
-                                <button
-                                    onClick={() => setShowDirectors(!showDirectors)}
-                                    aria-haspopup="true"
-                                    aria-expanded={showDirectors}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '10px 16px',
-                                        background: showDirectors ? 'var(--accent)' : 'transparent',
-                                        color: showDirectors ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                                        border: `1px solid ${showDirectors ? 'var(--accent)' : 'var(--border)'}`,
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        fontSize: '13px',
-                                        fontWeight: 500,
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <Icons.User />
-                                    Directors
-                                </button>
-                                {showDirectors && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        left: 0,
-                                        marginTop: '8px',
-                                        background: 'var(--bg-secondary)',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: '8px',
-                                        padding: '8px 0',
-                                        minWidth: '220px',
-                                        zIndex: 200,
-                                        boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-                                    }}>
-                                        <div style={{
-                                            maxHeight: '280px',
-                                            overflowY: 'auto',
-                                            scrollbarWidth: 'thin',
-                                            scrollbarColor: 'var(--accent) var(--bg-tertiary)'
-                                        }}>
-                                            {DIRECTORS.map((director) => (
-                                                <a
-                                                    key={director.name}
-                                                    href={`directors/index.html#${director.name.toLowerCase().replace(/ /g, '-')}`}
-                                                    style={{
-                                                        display: 'block',
-                                                        width: '100%',
-                                                        padding: '10px 16px',
-                                                        background: 'transparent',
-                                                        color: 'var(--text-primary)',
-                                                        fontSize: '13px',
-                                                        textAlign: 'right',
-                                                        cursor: 'pointer',
-                                                        transition: 'background 0.2s',
-                                                        fontFamily: "'HT Moshreq Pro', sans-serif",
-                                                        textDecoration: 'none'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                                >
-                                                    <div style={{ fontWeight: 600 }}>{director.nameAr}</div>
-                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'Space Grotesk, sans-serif' }}>{director.name}</div>
-                                                </a>
-                                            ))}
-                                        </div>
-                                        <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }}></div>
-                                        <a
-                                            href="directors/index.html"
-                                            style={{
-                                                display: 'block',
-                                                width: '100%',
-                                                padding: '12px 16px',
-                                                background: 'transparent',
-                                                color: 'var(--accent)',
-                                                fontSize: '13px',
-                                                textAlign: 'center',
-                                                textDecoration: 'none',
-                                                fontWeight: 600
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            View All Directors →
-                                        </a>
-                                    </div>
-                                )}
-                            </div>
+                            {/* Directors — plain link to the directors page */}
+                            <a
+                                href="directors/index.html"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 16px',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    textDecoration: 'none',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                            >
+                                <Icons.User />
+                                Directors
+                            </a>
 
                             {/* Featured Visuals Button */}
                             <button
@@ -1784,7 +1700,10 @@
                 const params = new URLSearchParams(window.location.search);
                 return params.get('director') || null;
             });
-            const [filterSource, setFilterSource] = useState(null);
+            const [filterSource, setFilterSource] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('source') || null;
+            });
             const [showAbout, setShowAbout] = useState(false);
             const [showFeatured, setShowFeatured] = useState(false);
             const [frameSize, setFrameSize] = useState('M');

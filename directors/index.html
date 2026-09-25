@@ -56,6 +56,12 @@
         ::-webkit-scrollbar-track { background: var(--bg-secondary); }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        .shimmer { background: linear-gradient(90deg, #141414 25%, #1e1e1e 50%, #141414 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @media (max-width: 720px) {
+            .profile-hero-grid { grid-template-columns: 1fr !important; }
+        }
     </style>
 </head>
 <body>
@@ -331,448 +337,330 @@
             </header>
         );
 
-        // Directors List Component
-        const DirectorsList = ({ onSelectDirector }) => {
-            // Get frame counts per director
-            const directorFrameCounts = useMemo(() => {
-                const counts = {};
-                if (typeof FRAMES_DATA !== 'undefined') {
-                    FRAMES_DATA.forEach(frame => {
-                        const director = frame.director;
-                        counts[director] = (counts[director] || 0) + 1;
-                    });
-                }
-                return counts;
-            }, []);
+// ─── Data helpers ────────────────────────────────────────────────
+        const ALL_FRAMES = (typeof FRAMES_DATA !== 'undefined') ? FRAMES_DATA : [];
+        const frameUrl = (f) => CONTENT_PATH + encodePath(f.file);
 
+        // Group a director's frames by project, largest project first
+        const worksFor = (name) => {
+            const map = {};
+            ALL_FRAMES.filter(f => f.director === name).forEach(f => {
+                (map[f.source] ||= { title: f.source, year: f.year, frames: [] }).frames.push(f);
+            });
+            return Object.values(map).sort((a, b) => b.frames.length - a.frames.length || b.year - a.year);
+        };
+
+        // A representative frame: 2nd frame of the biggest project (skips opening title cards)
+        const coverFor = (works) => {
+            if (!works.length) return null;
+            const fr = works[0].frames;
+            return fr[Math.min(1, fr.length - 1)];
+        };
+
+        const DIRECTOR_STATS = DIRECTORS_DATA.map(d => {
+            const works = worksFor(d.name);
+            const frames = works.reduce((n, w) => n + w.frames.length, 0);
+            return { ...d, works, frames, projects: works.length, cover: coverFor(works) };
+        });
+
+        // Shared: lazy image with shimmer + graceful failure
+        const Cover = ({ frame, alt, style }) => {
+            const [ok, setOk] = useState(null); // null loading | true | false
+            if (!frame) return <div style={{ ...style, background: 'var(--bg-tertiary)' }} />;
             return (
-                <div style={{ padding: '48px 32px', maxWidth: '1400px', margin: '0 auto' }}>
-                    <h1 style={{
-                        fontSize: '48px',
-                        fontFamily: "'HT Moshreq Pro', sans-serif",
-                        color: 'var(--accent)',
-                        marginBottom: '16px',
-                        textAlign: 'center'
-                    }}>
-                        المخرجين
-                    </h1>
-                    <p style={{
-                        fontSize: '18px',
-                        color: 'var(--text-secondary)',
-                        marginBottom: '48px',
-                        textAlign: 'center'
-                    }}>
-                        {DIRECTORS_DATA.length} Directors
-                    </p>
-
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))',
-                        gap: '24px'
-                    }}>
-                        {DIRECTORS_DATA.map(director => (
-                            <div
-                                key={director.id}
-                                onClick={() => onSelectDirector(director)}
-                                style={{
-                                    background: 'var(--bg-secondary)',
-                                    borderRadius: '16px',
-                                    padding: '32px',
-                                    border: '1px solid var(--border)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s',
-                                    textAlign: 'center'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--accent)';
-                                    e.currentTarget.style.transform = 'translateY(-4px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--border)';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                {/* Avatar placeholder */}
-                                <div style={{
-                                    width: '80px',
-                                    height: '80px',
-                                    borderRadius: '50%',
-                                    background: 'var(--bg-tertiary)',
-                                    border: '2px solid var(--accent)',
-                                    margin: '0 auto 20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '32px',
-                                    color: 'var(--accent)'
-                                }}>
-                                    {director.name.charAt(0)}
-                                </div>
-
-                                <h3 style={{
-                                    fontFamily: "'HT Moshreq Pro', sans-serif",
-                                    fontSize: '24px',
-                                    color: 'var(--accent)',
-                                    marginBottom: '8px'
-                                }}>
-                                    {director.nameAr}
-                                </h3>
-
-                                <p style={{
-                                    fontSize: '14px',
-                                    color: 'var(--text-secondary)',
-                                    marginBottom: '16px'
-                                }}>
-                                    {director.name}
-                                </p>
-
-                                <div style={{
-                                    fontSize: '13px',
-                                    color: directorFrameCounts[director.name] ? 'var(--accent)' : 'var(--text-tertiary)',
-                                    padding: '8px 16px',
-                                    background: 'var(--bg-tertiary)',
-                                    borderRadius: '20px',
-                                    display: 'inline-block'
-                                }}>
-                                    {directorFrameCounts[director.name]
-                                        ? `${directorFrameCounts[director.name]} frames`
-                                        : 'Coming soon'}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-tertiary)', ...style }}>
+                    {ok === null && <div className="shimmer" style={{ position: 'absolute', inset: 0 }} />}
+                    {ok !== false && (
+                        <img
+                            src={frameUrl(frame)}
+                            alt={alt || ''}
+                            loading="lazy"
+                            decoding="async"
+                            onLoad={() => setOk(true)}
+                            onError={() => setOk(false)}
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: ok ? 1 : 0, transition: 'opacity .4s' }}
+                        />
+                    )}
                 </div>
             );
         };
 
-        // Director Profile Component
-        const DirectorProfile = ({ director, onBack }) => {
-            // Get director's works from FRAMES_DATA
-            const directorWorks = useMemo(() => {
-                if (typeof FRAMES_DATA === 'undefined') return [];
+        // ─── Directors List ──────────────────────────────────────────────
+        const DirectorsList = ({ onSelectDirector }) => {
+            const active = DIRECTOR_STATS.filter(d => d.frames > 0).sort((a, b) => b.frames - a.frames);
+            const upcoming = DIRECTOR_STATS.filter(d => d.frames === 0);
+            const totalFrames = ALL_FRAMES.length;
+            const totalProjects = new Set(ALL_FRAMES.map(f => f.source)).size;
 
-                const works = {};
-                FRAMES_DATA.filter(f => f.director === director.name).forEach(frame => {
-                    const source = frame.source;
-                    if (!works[source]) {
-                        works[source] = {
-                            title: source,
-                            year: frame.year,
-                            frames: [],
-                            vimeoLink: null // set per-project once real links exist
-                        };
-                    }
-                    works[source].frames.push(frame);
-                });
-
-                return Object.values(works).sort((a, b) => b.year - a.year);
-            }, [director]);
-
-            const totalFrames = directorWorks.reduce((sum, work) => sum + work.frames.length, 0);
-
-            return (
-                <div style={{ minHeight: '100vh' }}>
-                    {/* Hero Section */}
-                    <div style={{
-                        padding: '64px 32px',
-                        background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
-                        textAlign: 'center',
-                        borderBottom: '1px solid var(--border)'
-                    }}>
-                        {/* Avatar */}
-                        <div style={{
-                            width: '120px',
-                            height: '120px',
-                            borderRadius: '50%',
-                            background: 'var(--bg-tertiary)',
-                            border: '3px solid var(--accent)',
-                            margin: '0 auto 24px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '48px',
-                            color: 'var(--accent)'
-                        }}>
-                            {director.name.charAt(0)}
-                        </div>
-
-                        <h1 style={{
-                            fontFamily: "'HT Moshreq Pro', sans-serif",
-                            fontSize: '48px',
-                            color: 'var(--accent)',
-                            marginBottom: '8px'
-                        }}>
-                            {director.nameAr}
-                        </h1>
-
-                        <p style={{
-                            fontSize: '20px',
-                            color: 'var(--text-secondary)',
-                            marginBottom: '24px'
-                        }}>
-                            {director.name}
-                        </p>
-
-                        <p style={{
-                            fontSize: '16px',
-                            color: 'var(--text-tertiary)',
-                            maxWidth: '600px',
-                            margin: '0 auto 32px',
-                            lineHeight: 1.6
-                        }}>
-                            {director.bio}
-                        </p>
-
-                        {/* Stats */}
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            gap: '48px'
-                        }}>
-                            <div>
-                                <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--accent)' }}>
-                                    {directorWorks.length}
-                                </div>
-                                <div style={{ fontSize: '14px', color: 'var(--text-tertiary)' }}>Projects</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--accent)' }}>
-                                    {totalFrames}
-                                </div>
-                                <div style={{ fontSize: '14px', color: 'var(--text-tertiary)' }}>Frames</div>
-                            </div>
-                        </div>
-
-                        {/* Social Links */}
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            gap: '16px',
-                            marginTop: '32px'
-                        }}>
-                            {director.vimeo && !director.vimeo.includes('placeholder') && (
-                                <a
-                                    href={director.vimeo}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                        padding: '12px 24px',
-                                        background: 'var(--accent)',
-                                        color: '#000',
-                                        borderRadius: '8px',
-                                        textDecoration: 'none',
-                                        fontSize: '14px',
-                                        fontWeight: 600,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/>
-                                    </svg>
-                                    Vimeo
-                                </a>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Works Section */}
-                    <div style={{ padding: '48px 32px', maxWidth: '1400px', margin: '0 auto' }}>
-                        <h2 style={{
-                            fontSize: '28px',
-                            color: 'var(--accent)',
-                            marginBottom: '32px',
-                            fontFamily: "'HT Moshreq Pro', sans-serif"
-                        }}>
-                            الأعمال
-                            <span style={{
-                                fontSize: '18px',
-                                color: 'var(--text-secondary)',
-                                marginRight: '12px',
-                                fontFamily: "'Space Grotesk', sans-serif"
-                            }}>Works</span>
-                        </h2>
-
-                        {directorWorks.length === 0 ? (
-                            <div style={{
-                                textAlign: 'center',
-                                padding: '64px',
-                                color: 'var(--text-tertiary)'
-                            }}>
-                                No works available yet. Coming soon!
+            const Card = ({ d }) => {
+                const [hover, setHover] = useState(false);
+                const live = d.frames > 0;
+                return (
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onSelectDirector(d)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDirector(d); } }}
+                        onMouseEnter={() => setHover(true)}
+                        onMouseLeave={() => setHover(false)}
+                        className="dir-card"
+                        style={{
+                            position: 'relative',
+                            aspectRatio: '16 / 10',
+                            borderRadius: '14px',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            background: 'var(--bg-secondary)',
+                            border: `1px solid ${hover ? 'var(--accent)' : 'var(--border)'}`,
+                            transform: hover ? 'translateY(-3px)' : 'none',
+                            boxShadow: hover ? '0 24px 60px rgba(0,0,0,.6)' : '0 8px 30px rgba(0,0,0,.35)',
+                            transition: 'transform .35s cubic-bezier(.16,1,.3,1), box-shadow .35s, border-color .25s',
+                            outline: 'none'
+                        }}
+                    >
+                        {live ? (
+                            <div style={{ position: 'absolute', inset: 0, transform: hover ? 'scale(1.04)' : 'scale(1)', transition: 'transform .8s cubic-bezier(.16,1,.3,1)' }}>
+                                <Cover frame={d.cover} alt={d.name} style={{ position: 'absolute', inset: 0 }} />
                             </div>
                         ) : (
                             <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))',
-                                gap: '24px'
+                                position: 'absolute', inset: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'radial-gradient(ellipse at 50% 40%, #1c1c1c 0%, #0d0d0d 70%)'
                             }}>
-                                {directorWorks.map((work, index) => (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            background: 'var(--bg-secondary)',
-                                            borderRadius: '16px',
-                                            overflow: 'hidden',
-                                            border: '1px solid var(--border)',
-                                            transition: 'all 0.3s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.borderColor = 'var(--accent)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.borderColor = 'var(--border)';
-                                        }}
-                                    >
-                                        {/* Thumbnail - use first frame */}
-                                        <div style={{
-                                            position: 'relative',
-                                            paddingTop: '56.25%',
-                                            background: 'var(--bg-tertiary)'
-                                        }}>
-                                            {work.frames[0] && (
-                                                <img
-                                                    src={CONTENT_PATH + encodePath(work.frames[0].file)}
-                                                    alt={work.title}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: 0,
-                                                        left: 0,
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover'
-                                                    }}
-                                                />
-                                            )}
-                                            <div style={{
-                                                position: 'absolute',
-                                                bottom: '12px',
-                                                right: '12px',
-                                                background: 'rgba(0,0,0,0.8)',
-                                                padding: '4px 10px',
-                                                borderRadius: '4px',
-                                                fontSize: '12px',
-                                                color: 'var(--text-secondary)'
-                                            }}>
-                                                {work.frames.length} frames
-                                            </div>
-                                        </div>
+                                <span style={{ fontSize: '88px', fontWeight: 700, color: 'rgba(255,217,0,.12)', letterSpacing: '-.04em', fontFamily: "'Space Grotesk', sans-serif" }}>
+                                    {d.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                                </span>
+                            </div>
+                        )}
 
-                                        {/* Info */}
-                                        <div style={{ padding: '20px' }}>
-                                            <h3 style={{
-                                                fontSize: '18px',
-                                                color: 'var(--text-primary)',
-                                                marginBottom: '8px',
-                                                fontWeight: 600
-                                            }}>
-                                                {work.title}
-                                            </h3>
+                        {/* Gradient scrim */}
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.05) 30%, rgba(0,0,0,.55) 65%, rgba(0,0,0,.92) 100%)' }} />
 
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center'
-                                            }}>
-                                                <span style={{
-                                                    fontSize: '14px',
-                                                    color: 'var(--text-tertiary)'
-                                                }}>
-                                                    {work.year}
-                                                </span>
+                        {/* Status chip */}
+                        <div style={{
+                            position: 'absolute', top: '14px', left: '14px',
+                            padding: '5px 10px', borderRadius: '100px',
+                            fontSize: '10px', fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase',
+                            background: live ? 'rgba(0,0,0,.65)' : 'rgba(255,255,255,.06)',
+                            color: live ? 'var(--accent)' : 'var(--text-tertiary)',
+                            border: `1px solid ${live ? 'rgba(255,217,0,.35)' : 'var(--border)'}`,
+                            backdropFilter: 'blur(8px)'
+                        }}>
+                            {live ? `${d.projects} project${d.projects === 1 ? '' : 's'}` : 'Coming soon'}
+                        </div>
 
-                                                {work.vimeoLink && !String(work.vimeoLink).includes('placeholder') ? (
-                                                    <a
-                                                        href={work.vimeoLink}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{
-                                                            padding: '8px 16px',
-                                                            background: 'var(--bg-tertiary)',
-                                                            border: '1px solid var(--border)',
-                                                            borderRadius: '6px',
-                                                            color: 'var(--text-secondary)',
-                                                            textDecoration: 'none',
-                                                            fontSize: '13px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '6px',
-                                                            transition: 'all 0.2s'
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.borderColor = 'var(--accent)';
-                                                            e.currentTarget.style.color = 'var(--accent)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.borderColor = 'var(--border)';
-                                                            e.currentTarget.style.color = 'var(--text-secondary)';
-                                                        }}
-                                                    >
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                            <path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/>
-                                                        </svg>
-                                                        Watch
-                                                    </a>
-                                                ) : (
-                                                    <a
-                                                        href={`../index.html?director=${encodeURIComponent(director.name)}`}
-                                                        style={{
-                                                            padding: '8px 16px',
-                                                            background: 'var(--bg-tertiary)',
-                                                            border: '1px solid var(--border)',
-                                                            borderRadius: '6px',
-                                                            color: 'var(--text-secondary)',
-                                                            textDecoration: 'none',
-                                                            fontSize: '13px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '6px',
-                                                            transition: 'all 0.2s'
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.borderColor = 'var(--accent)';
-                                                            e.currentTarget.style.color = 'var(--accent)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.borderColor = 'var(--border)';
-                                                            e.currentTarget.style.color = 'var(--text-secondary)';
-                                                        }}
-                                                    >
-                                                        View frames →
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </div>
+                        {/* Names + stats */}
+                        <div style={{ position: 'absolute', left: '20px', right: '20px', bottom: '18px', direction: 'rtl', textAlign: 'right' }}>
+                            <div style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: '30px', lineHeight: 1.1, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,.6)' }}>
+                                {d.nameAr}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '6px', direction: 'ltr' }}>
+                                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,.75)', letterSpacing: '.01em' }}>{d.name}</span>
+                                {live && (
+                                    <span style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>
+                                        {d.frames.toLocaleString()} frames
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div>
+                    {/* Editorial hero */}
+                    <section style={{ padding: '72px 32px 40px', maxWidth: '1400px', margin: '0 auto' }}>
+                        <div style={{ fontSize: '11px', letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: '18px' }}>
+                            Berwaz · Cinematic Reference Library
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '24px' }}>
+                            <div>
+                                <h1 style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: 'clamp(48px, 7vw, 84px)', lineHeight: .95, color: 'var(--accent)', margin: 0 }}>
+                                    المخرجين
+                                </h1>
+                                <div style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', fontWeight: 300, color: 'var(--text-primary)', marginTop: '10px', letterSpacing: '-.01em' }}>
+                                    The Saudi directors behind the frames
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '36px' }}>
+                                {[[DIRECTORS_DATA.length, 'Directors'], [totalProjects, 'Projects'], [totalFrames.toLocaleString(), 'Frames']].map(([n, l]) => (
+                                    <div key={l}>
+                                        <div style={{ fontSize: '30px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{n}</div>
+                                        <div style={{ fontSize: '11px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginTop: '6px' }}>{l}</div>
                                     </div>
                                 ))}
                             </div>
-                        )}
+                        </div>
+                    </section>
 
-                        {/* View Frames Link — only when there is something to show */}
-                        {totalFrames > 0 && (
-                            <div style={{ textAlign: 'center', marginTop: '48px' }}>
-                                <a
-                                    href={`../index.html?director=${encodeURIComponent(director.name)}`}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '16px 32px',
-                                        background: 'var(--accent)',
-                                        color: '#000',
-                                        borderRadius: '8px',
-                                        textDecoration: 'none',
-                                        fontSize: '16px',
-                                        fontWeight: 600,
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    View all {totalFrames.toLocaleString()} frames →
-                                </a>
+                    {/* Active directors */}
+                    <section style={{ padding: '0 32px 24px', maxWidth: '1400px', margin: '0 auto' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '20px' }}>
+                            {active.map(d => <Card key={d.id} d={d} />)}
+                        </div>
+                    </section>
+
+                    {/* Upcoming */}
+                    {upcoming.length > 0 && (
+                        <section style={{ padding: '32px 32px 80px', maxWidth: '1400px', margin: '0 auto' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                                <span style={{ fontSize: '11px', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
+                                    Joining soon · {upcoming.length}
+                                </span>
+                                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))', gap: '16px' }}>
+                                {upcoming.map(d => <Card key={d.id} d={d} />)}
+                            </div>
+                        </section>
+                    )}
+                </div>
+            );
+        };
+
+        // ─── Director Profile ────────────────────────────────────────────
+        const DirectorProfile = ({ director, onBack }) => {
+            const d = useMemo(() => DIRECTOR_STATS.find(x => x.id === director.id) || { ...director, works: [], frames: 0, projects: 0, cover: null }, [director]);
+            const hasVimeo = d.vimeo && !d.vimeo.includes('placeholder');
+
+            const WorkCard = ({ work }) => {
+                const [hover, setHover] = useState(false);
+                const cover = work.frames[Math.min(1, work.frames.length - 1)];
+                return (
+                    <a
+                        href={`../index.html?source=${encodeURIComponent(work.title)}`}
+                        onMouseEnter={() => setHover(true)}
+                        onMouseLeave={() => setHover(false)}
+                        style={{
+                            display: 'block', textDecoration: 'none', color: 'inherit',
+                            borderRadius: '12px', overflow: 'hidden',
+                            background: 'var(--bg-secondary)',
+                            border: `1px solid ${hover ? 'var(--accent)' : 'var(--border)'}`,
+                            transform: hover ? 'translateY(-3px)' : 'none',
+                            transition: 'transform .3s cubic-bezier(.16,1,.3,1), border-color .25s'
+                        }}
+                    >
+                        <div style={{ position: 'relative', aspectRatio: '16 / 9' }}>
+                            <div style={{ position: 'absolute', inset: 0, transform: hover ? 'scale(1.04)' : 'scale(1)', transition: 'transform .7s cubic-bezier(.16,1,.3,1)' }}>
+                                <Cover frame={cover} alt={work.title} style={{ position: 'absolute', inset: 0 }} />
+                            </div>
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 55%, rgba(0,0,0,.75) 100%)' }} />
+                            <div style={{
+                                position: 'absolute', bottom: '10px', right: '10px',
+                                padding: '4px 9px', borderRadius: '6px', fontSize: '11px',
+                                fontFamily: "'JetBrains Mono', monospace",
+                                background: 'rgba(0,0,0,.7)', color: 'var(--accent)', backdropFilter: 'blur(6px)'
+                            }}>
+                                {work.frames.length} frames
+                            </div>
+                        </div>
+                        <div style={{ padding: '14px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {work.title}
+                            </div>
+                            <span style={{ fontSize: '12px', color: hover ? 'var(--accent)' : 'var(--text-tertiary)', flexShrink: 0, transition: 'color .2s' }}>
+                                Study →
+                            </span>
+                        </div>
+                    </a>
+                );
+            };
+
+            return (
+                <div style={{ minHeight: '100vh' }}>
+                    {/* Backdrop hero */}
+                    <section style={{ position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--border)' }}>
+                        {d.cover && (
+                            <div style={{ position: 'absolute', inset: '-40px', filter: 'blur(28px) saturate(1.1)', opacity: .38, transform: 'scale(1.1)' }}>
+                                <Cover frame={d.cover} alt="" style={{ position: 'absolute', inset: 0 }} />
                             </div>
                         )}
-                    </div>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(10,10,10,.55) 0%, rgba(10,10,10,.85) 70%, var(--bg-primary) 100%)' }} />
+
+                        <div style={{ position: 'relative', maxWidth: '1400px', margin: '0 auto', padding: '40px 32px 56px' }}>
+                            <button
+                                onClick={onBack}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', padding: 0, marginBottom: '36px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                            >
+                                ← All directors
+                            </button>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '32px', alignItems: 'end' }} className="profile-hero-grid">
+                                <div style={{ direction: 'rtl', textAlign: 'right' }}>
+                                    <h1 style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: 'clamp(44px, 6vw, 76px)', lineHeight: 1, color: '#fff', margin: 0, textShadow: '0 4px 30px rgba(0,0,0,.6)' }}>
+                                        {d.nameAr}
+                                    </h1>
+                                    <div style={{ direction: 'ltr', textAlign: 'left' }}>
+                                        <div style={{ fontSize: '22px', fontWeight: 300, color: 'var(--accent)', marginTop: '10px', letterSpacing: '-.01em' }}>{d.name}</div>
+                                        {d.bio && (
+                                            <p style={{ fontSize: '15px', lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: '640px', marginTop: '18px' }}>
+                                                {d.bio}
+                                            </p>
+                                        )}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '26px' }}>
+                                            {d.frames > 0 && (
+                                                <a href={`../index.html?director=${encodeURIComponent(d.name)}`} style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                                    padding: '12px 22px', borderRadius: '8px',
+                                                    background: 'var(--accent)', color: '#000', fontWeight: 600, fontSize: '14px', textDecoration: 'none'
+                                                }}>
+                                                    Browse all {d.frames.toLocaleString()} frames →
+                                                </a>
+                                            )}
+                                            {hasVimeo && (
+                                                <a href={d.vimeo} target="_blank" rel="noopener noreferrer" style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                                    padding: '12px 20px', borderRadius: '8px',
+                                                    background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)',
+                                                    color: 'var(--text-primary)', fontSize: '14px', textDecoration: 'none'
+                                                }}>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/></svg>
+                                                    Vimeo
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Stats block */}
+                                <div style={{ display: 'flex', gap: '28px', padding: '18px 22px', borderRadius: '12px', background: 'rgba(0,0,0,.45)', border: '1px solid var(--border)', backdropFilter: 'blur(10px)' }}>
+                                    {[[d.frames.toLocaleString(), 'Frames'], [d.projects, 'Projects']].map(([n, l]) => (
+                                        <div key={l} style={{ textAlign: 'center' }}>
+                                            <div style={{ fontSize: '30px', fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{n}</div>
+                                            <div style={{ fontSize: '10px', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginTop: '6px' }}>{l}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Works */}
+                    <section style={{ maxWidth: '1400px', margin: '0 auto', padding: '44px 32px 80px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
+                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: '14px' }}>
+                                <span style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: '30px', color: 'var(--accent)' }}>الأعمال</span>
+                                <span style={{ fontSize: '14px', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Works</span>
+                            </h2>
+                            {d.projects > 0 && <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Click a project to study its frames</span>}
+                        </div>
+
+                        {d.works.length === 0 ? (
+                            <div style={{ padding: '72px 24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '14px' }}>
+                                <div style={{ fontSize: '40px', opacity: .25, marginBottom: '12px' }}>◇</div>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Frames from {d.name} are being prepared.</div>
+                                <div style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '6px' }}>Check back soon.</div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: '18px' }}>
+                                {d.works.map(w => <WorkCard key={w.title} work={w} />)}
+                            </div>
+                        )}
+                    </section>
                 </div>
             );
         };
