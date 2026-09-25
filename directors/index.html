@@ -331,11 +331,13 @@
             return Object.values(map).sort((a, b) => b.frames.length - a.frames.length || b.year - a.year);
         };
 
-        // A representative frame: 2nd frame of the biggest project (skips opening title cards)
+        // A random frame from anywhere in the director's work — picked once per page
+        // load, so every visit shows a different cover. Skips the first frame of each
+        // project (usually a title card) when there's anything else to choose from.
         const coverFor = (works) => {
             if (!works.length) return null;
-            const fr = works[0].frames;
-            return fr[Math.min(1, fr.length - 1)];
+            const pool = works.flatMap(w => w.frames.length > 1 ? w.frames.slice(1) : w.frames);
+            return pool[Math.floor(Math.random() * pool.length)] || null;
         };
 
         const DIRECTOR_STATS = DIRECTORS_DATA.map(d => {
