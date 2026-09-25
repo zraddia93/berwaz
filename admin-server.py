@@ -233,8 +233,12 @@ def publish_config(config):
         {"name": d["name"], "nameAr": d["nameAr"]}
         for d in config.get("directors", [])
     ]
+    def js_str(value):
+        """Safely encode a string as a JS string literal (handles quotes, newlines, unicode)."""
+        return json.dumps(str(value if value is not None else ""), ensure_ascii=False)
+
     directors_js = "[\n" + ",\n".join(
-        f'            {{ name: "{d["name"]}", nameAr: "{d["nameAr"]}" }}'
+        f'            {{ name: {js_str(d.get("name"))}, nameAr: {js_str(d.get("nameAr"))} }}'
         for d in config.get("directors", [])
     ) + "\n        ]"
     if not update_js_variable("index.html", "DIRECTORS", directors_js):
@@ -242,16 +246,11 @@ def publish_config(config):
 
     # 3. Update DIRECTORS_DATA in directors/index.html (full format)
     directors_full = config.get("directors", [])
+    fields = ["id", "name", "nameAr", "bio", "vimeo", "instagram", "twitter"]
     directors_data_js = "[\n" + ",\n".join(
-        '            {{\n'
-        '                id: "{id}",\n'
-        '                name: "{name}",\n'
-        '                nameAr: "{nameAr}",\n'
-        '                bio: "{bio}",\n'
-        '                vimeo: "{vimeo}",\n'
-        '                instagram: "{instagram}",\n'
-        '                twitter: "{twitter}"\n'
-        '            }}'.format(**d)
+        '            {\n' +
+        ",\n".join(f'                {k}: {js_str(d.get(k, ""))}' for k in fields) +
+        '\n            }'
         for d in directors_full
     ) + "\n        ]"
     if not update_js_variable("directors/index.html", "DIRECTORS_DATA", directors_data_js):
@@ -261,9 +260,17 @@ def publish_config(config):
     filter_tags = config.get("filterTags", {})
     projects = filter_tags.get("projects", [])
     filter_js = '{{\n            projects: [{items}]\n        }}'.format(
-        items=', '.join(f'"{p}"' for p in projects)
+        items=', '.join(js_str(p) for p in projects)
     )
     if not update_js_variable("index.html", "FILTER_TAGS", filter_js):
+        success = False
+
+    # 5. Update PROJECT_CATEGORIES in index.html (project name -> category)
+    project_categories = config.get("projectCategories", {}) or {}
+    pc_js = json.dumps(project_categories, ensure_ascii=False, indent=12)
+    # Re-indent closing brace to match file style
+    pc_js = pc_js.replace("\n}", "\n        }") if pc_js != "{}" else "{}"
+    if not update_js_variable("index.html", "PROJECT_CATEGORIES", pc_js):
         success = False
 
     if success:

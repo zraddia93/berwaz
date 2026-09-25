@@ -211,6 +211,44 @@
             projects: ["Saudi National Day", "Saudi Founding Day", "Commercial Films", "Branding Films"]
         };
 
+        // Project → Category assignments (managed from admin panel, regenerated on publish)
+        const PROJECT_CATEGORIES = {
+            "Aramco Founding Day": "Saudi Founding Day",
+            "Dalila": "Branding Films",
+            "sayaar - درعك ضد البرد": "Commercial Films",
+            "world cup song yalla 2024": "Branding Films",
+            "كأس العالم للأندية - هلا بالأبطال": "Branding Films",
+            "jeddahseason little asia - موسم جده": "Branding Films",
+            "وزارة الدفاع   مصيونة": "Saudi National Day",
+            "الحرس الوطني - صمام الأمان": "Saudi National Day",
+            "konoz": "Branding Films",
+            "أوتليت الرياض - رقية و سبيكة": "Branding Films",
+            "مسك - سلايل   misk - slayel": "Saudi National Day",
+            "thechefz - العيد": "Branding Films",
+            "download": "Branding Films",
+            "hyundai   driven by you": "Saudi National Day",
+            "النصر - اليوم الوطني": "Saudi National Day",
+            "MadeInSaudi": "Saudi National Day",
+            " A Nation Built - Misk Founding Day '25": "Saudi Founding Day",
+            "Migabil Alsaad - GOSI Founding Day '25": "Saudi Founding Day",
+            "DGDA": "Saudi National Day",
+            "marsool": "Branding Films",
+            "tawuniya - miami": "Branding Films",
+            "كأس العالم للرياضات الالكترونية - ewc": "Branding Films",
+            "NiceOne BlackFriday": "Branding Films",
+            "As One - DGDA Saudi National Day '95": "Branding Films",
+            "Solo Menu Ennabi Grill ": "Branding Films",
+            "KONOZ - Saudi National Day '95": "Saudi National Day",
+            "Marsool": "Branding Films",
+            "الحرس الوطني - عيالي فداها": "Saudi National Day",
+            "موسم الرياض - الموسم عود": "Branding Films",
+            "Aramco National Day": "Saudi National Day",
+            "وزارة السياحة - كلنا يمناك": "Saudi Founding Day",
+            "root-full roots": "Saudi Founding Day",
+            "Tourism": "Branding Films",
+            "metamorphosis   ndf snd 93 film": "Saudi National Day"
+        };
+
         // Minimal Icon Components
         const Icons = {
             Search: () => (
@@ -256,6 +294,11 @@
             Film: () => (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="22" y2="16"/><line x1="6" y1="4" x2="6" y2="8"/><line x1="18" y1="4" x2="18" y2="8"/><line x1="6" y1="16" x2="6" y2="20"/><line x1="18" y1="16" x2="18" y2="20"/>
+                </svg>
+            ),
+            Copy: () => (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                 </svg>
             )
         };
@@ -849,6 +892,8 @@
 
         // Frame Detail Modal
         const FrameModal = ({ frame, onClose, onFilterByDirector, onFilterBySource, onFilterByTag }) => {
+            const [promptCopied, setPromptCopied] = useState(false);
+
             // Close on Escape key
             useEffect(() => {
                 const handleKeyDown = (e) => {
@@ -1131,6 +1176,81 @@
                                     ))}
                                 </div>
                             </div>
+
+                            {/* AI Image Prompt */}
+                            {frame.prompt && (
+                                <div style={{ marginBottom: '32px' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '12px'
+                                    }}>
+                                        <div style={{
+                                            fontSize: '10px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.15em',
+                                            color: 'var(--text-tertiary)'
+                                        }}>
+                                            AI Image Prompt
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    await navigator.clipboard.writeText(frame.prompt);
+                                                } catch (e) {
+                                                    const ta = document.createElement('textarea');
+                                                    ta.value = frame.prompt;
+                                                    ta.style.position = 'fixed';
+                                                    ta.style.opacity = '0';
+                                                    document.body.appendChild(ta);
+                                                    ta.select();
+                                                    document.execCommand('copy');
+                                                    document.body.removeChild(ta);
+                                                }
+                                                setPromptCopied(true);
+                                                setTimeout(() => setPromptCopied(false), 2000);
+                                            }}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '6px 12px',
+                                                background: promptCopied ? 'var(--accent)' : 'var(--bg-tertiary)',
+                                                color: promptCopied ? '#000' : 'var(--text-primary)',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '100px',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            <Icons.Copy />
+                                            {promptCopied ? 'Copied!' : 'Copy Prompt'}
+                                        </button>
+                                    </div>
+                                    <div style={{
+                                        padding: '14px 16px',
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        lineHeight: 1.6,
+                                        color: 'var(--text-secondary)',
+                                        userSelect: 'text'
+                                    }}>
+                                        {frame.prompt}
+                                    </div>
+                                    <div style={{
+                                        marginTop: '8px',
+                                        fontSize: '11px',
+                                        color: 'var(--text-tertiary)'
+                                    }}>
+                                        Paste into Midjourney, Nano Banana, ChatGPT or any image model to recreate this look.
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Actions */}
                             <div style={{
@@ -1506,20 +1626,22 @@
                 if (searchQuery.trim()) {
                     const q = searchQuery.toLowerCase();
                     result = result.filter(f =>
-                        f.title.toLowerCase().includes(q) ||
-                        f.source.toLowerCase().includes(q) ||
-                        f.director.toLowerCase().includes(q) ||
-                        f.tags.some(t => t.toLowerCase().includes(q))
+                        (f.title || '').toLowerCase().includes(q) ||
+                        (f.source || '').toLowerCase().includes(q) ||
+                        (f.director || '').toLowerCase().includes(q) ||
+                        (f.tags || []).some(t => t.toLowerCase().includes(q))
                     );
                 }
 
                 if (activeTags.length > 0) {
                     result = result.filter(f =>
                         activeTags.some(tag => {
+                            // 1. Explicit assignment from admin panel (PROJECT_CATEGORIES)
+                            if (f.source && PROJECT_CATEGORIES[f.source] === tag) return true;
                             const tagLower = tag.toLowerCase();
-                            // Match project types against source field
+                            // 2. Fallback: project name contains the category text
                             if (f.source && f.source.toLowerCase().includes(tagLower)) return true;
-                            // Also check tags array for flexibility
+                            // 3. Fallback: frame tags contain the category text
                             if (f.tags && f.tags.some(t => t.toLowerCase().includes(tagLower))) return true;
                             return false;
                         })

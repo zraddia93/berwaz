@@ -357,7 +357,7 @@
 
             const filtered = useMemo(() => {
                 let fr = config.frames || [];
-                if (search) { const q = search.toLowerCase(); fr = fr.filter(f => [f.source,f.director,f.title,f.file,...(f.tags||[])].some(x => (x||'').toLowerCase().includes(q))); }
+                if (search) { const q = search.toLowerCase(); fr = fr.filter(f => [f.source,f.director,f.title,f.file,f.prompt,...(f.tags||[])].some(x => (x||'').toLowerCase().includes(q))); }
                 if (fDir) fr = fr.filter(f => f.director === fDir);
                 if (fSrc) fr = fr.filter(f => f.source === fSrc);
                 return fr;
@@ -421,6 +421,10 @@
                         <div className="form-group"><label>DP / Cinematographer</label><input value={f.dp||''} onChange={e => s('dp', e.target.value)} /></div>
                         <div className="form-group"><label>Color Palette</label><ColorInput colors={f.color||['#8B7355','#D4A574','#1A1A1A']} onChange={c => s('color', c)} /></div>
                         <div className="form-group"><label>Tags</label><TagInput tags={f.tags||[]} onChange={t => s('tags', t)} /></div>
+                        <div className="form-group">
+                            <label>AI Image Prompt <span style={{ color: 'var(--text-tertiary)', textTransform: 'none', fontWeight: 400 }}>· {(f.prompt||'').split(/\s+/).filter(Boolean).length} words</span></label>
+                            <textarea value={f.prompt||''} onChange={e => s('prompt', e.target.value)} placeholder="Cinematic description for AI image generators..." style={{ minHeight: 110, fontSize: 13, lineHeight: 1.5 }} />
+                        </div>
                         <div className="form-group"><label>File Path</label><input value={f.file||''} onChange={e => s('file', e.target.value)} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }} /></div>
                     </Modal>
                 );
@@ -505,7 +509,7 @@
                                             {(f.tags||[]).slice(0,2).map(t => <span key={t} className="badge badge-default" style={{fontSize:10}}>{t}</span>)}
                                             {(f.tags||[]).length > 2 && <span className="badge badge-default" style={{fontSize:10}}>+{f.tags.length-2}</span>}
                                         </div></td>
-                                        <td style={{ color: 'var(--text-tertiary)' }}>{f.mood||'—'}</td>
+                                        <td style={{ color: 'var(--text-tertiary)' }}>{f.mood||'—'}{f.prompt ? <span title="Has AI prompt" style={{ marginLeft: 6, color: 'var(--accent)' }}>✦</span> : null}</td>
                                         <td><div style={{display:'flex',gap:6}}>
                                             <button className="btn btn-secondary btn-xs" onClick={() => setEditFrame(f)}>Edit</button>
                                             <button className="btn btn-danger btn-xs" onClick={() => deleteFrames([f.id])}>Del</button>
