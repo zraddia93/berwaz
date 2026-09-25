@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -265,8 +266,14 @@ def publish_config(config):
     if not update_js_variable("index.html", "FILTER_TAGS", filter_js):
         success = False
 
-    # 5. Update PROJECT_CATEGORIES in index.html (project name -> category)
+    # 5. Update PROJECT_CATEGORIES in index.html (project name -> category).
+    #    Keys are normalised to NFC: macOS filenames give decomposed Arabic (NFD)
+    #    while typed input is precomposed (NFC), and a strict key match misses those.
     project_categories = config.get("projectCategories", {}) or {}
+    project_categories = {
+        unicodedata.normalize("NFC", str(k)): v
+        for k, v in project_categories.items()
+    }
     pc_js = json.dumps(project_categories, ensure_ascii=False, indent=12)
     # Re-indent closing brace to match file style
     pc_js = pc_js.replace("\n}", "\n        }") if pc_js != "{}" else "{}"

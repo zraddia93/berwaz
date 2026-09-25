@@ -2,14 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Saudi directors featured in the Berwaz visual study library.">
+    <meta name="theme-color" content="#0a0a0a">
     <title>Directors - برواز</title>
     <link rel="icon" type="image/png" href="brand_mark.png">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://pub-b8befece66bc4203bab663b2ed292cd4.r2.dev" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.9/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         @font-face {
             font-family: 'HT Moshreq Pro';
@@ -42,7 +45,8 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -61,8 +65,8 @@
         <p style="color:#888;font-size:14px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px 0;">Work in Progress</p>
         <p style="color:#555;font-size:13px;margin:0 0 32px 0;">This platform is currently under development. Coming soon.</p>
         <form id="password-form" style="display:flex;flex-direction:column;align-items:center;gap:16px;">
-            <input id="password-input" type="password" placeholder="Enter password" autocomplete="off" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:12px 24px;border-radius:8px;font-size:16px;width:260px;text-align:center;outline:none;font-family:'Space Grotesk',sans-serif;" onfocus="this.style.borderColor='#D4A853'" onblur="this.style.borderColor='#333'">
-            <button type="submit" style="background:#D4A853;color:#0a0a0a;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Enter</button>
+            <input id="password-input" type="password" placeholder="Enter password" autocomplete="off" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:12px 24px;border-radius:8px;font-size:16px;width:260px;text-align:center;outline:none;font-family:'Space Grotesk',sans-serif;" onfocus="this.style.borderColor='#ffd900'" onblur="this.style.borderColor='#333'">
+            <button type="submit" style="background:#ffd900;color:#0a0a0a;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Enter</button>
             <p id="password-error" style="color:#ff4444;font-size:13px;margin:0;display:none;">Incorrect password</p>
         </form>
     </div>
@@ -241,6 +245,7 @@
             }
         ];
 
+        const encodePath = (p) => String(p).split('/').map(encodeURIComponent).join('/');
         const CONTENT_PATH = 'https://pub-b8befece66bc4203bab663b2ed292cd4.r2.dev/content/';
 
         // Get director from URL hash
@@ -258,10 +263,12 @@
                 background: 'rgba(0,0,0,0.9)',
                 backdropFilter: 'blur(20px)',
                 borderBottom: '1px solid var(--border)',
-                padding: '16px 32px',
+                padding: '14px 20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
                 direction: 'rtl'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -298,7 +305,7 @@
                                 transition: 'all 0.2s'
                             }}
                         >
-                            → Back to Directors
+                            ← Back to Directors
                         </button>
                     )}
                     <a
@@ -318,7 +325,7 @@
                             transition: 'all 0.2s'
                         }}
                     >
-                        → Main Page
+                        ← Main Page
                     </a>
                 </div>
             </header>
@@ -360,7 +367,7 @@
 
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))',
                         gap: '24px'
                     }}>
                         {DIRECTORS_DATA.map(director => (
@@ -421,13 +428,15 @@
 
                                 <div style={{
                                     fontSize: '13px',
-                                    color: 'var(--text-tertiary)',
+                                    color: directorFrameCounts[director.name] ? 'var(--accent)' : 'var(--text-tertiary)',
                                     padding: '8px 16px',
                                     background: 'var(--bg-tertiary)',
                                     borderRadius: '20px',
                                     display: 'inline-block'
                                 }}>
-                                    {directorFrameCounts[director.name] || 0} frames
+                                    {directorFrameCounts[director.name]
+                                        ? `${directorFrameCounts[director.name]} frames`
+                                        : 'Coming soon'}
                                 </div>
                             </div>
                         ))}
@@ -450,7 +459,7 @@
                             title: source,
                             year: frame.year,
                             frames: [],
-                            vimeoLink: "https://vimeo.com/placeholder" // Placeholder
+                            vimeoLink: null // set per-project once real links exist
                         };
                     }
                     works[source].frames.push(frame);
@@ -581,7 +590,7 @@
                                 fontSize: '18px',
                                 color: 'var(--text-secondary)',
                                 marginRight: '12px',
-                                fontFamily: 'Inter, sans-serif'
+                                fontFamily: "'Space Grotesk', sans-serif"
                             }}>Works</span>
                         </h2>
 
@@ -596,7 +605,7 @@
                         ) : (
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))',
                                 gap: '24px'
                             }}>
                                 {directorWorks.map((work, index) => (
@@ -624,7 +633,7 @@
                                         }}>
                                             {work.frames[0] && (
                                                 <img
-                                                    src={CONTENT_PATH + encodeURI(work.frames[0].file)}
+                                                    src={CONTENT_PATH + encodePath(work.frames[0].file)}
                                                     alt={work.title}
                                                     style={{
                                                         position: 'absolute',
@@ -673,37 +682,66 @@
                                                     {work.year}
                                                 </span>
 
-                                                <a
-                                                    href={work.vimeoLink}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{
-                                                        padding: '8px 16px',
-                                                        background: 'var(--bg-tertiary)',
-                                                        border: '1px solid var(--border)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--text-secondary)',
-                                                        textDecoration: 'none',
-                                                        fontSize: '13px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.borderColor = 'var(--accent)';
-                                                        e.currentTarget.style.color = 'var(--accent)';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.borderColor = 'var(--border)';
-                                                        e.currentTarget.style.color = 'var(--text-secondary)';
-                                                    }}
-                                                >
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                        <path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/>
-                                                    </svg>
-                                                    Watch
-                                                </a>
+                                                {work.vimeoLink && !String(work.vimeoLink).includes('placeholder') ? (
+                                                    <a
+                                                        href={work.vimeoLink}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            padding: '8px 16px',
+                                                            background: 'var(--bg-tertiary)',
+                                                            border: '1px solid var(--border)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-secondary)',
+                                                            textDecoration: 'none',
+                                                            fontSize: '13px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.borderColor = 'var(--accent)';
+                                                            e.currentTarget.style.color = 'var(--accent)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.borderColor = 'var(--border)';
+                                                            e.currentTarget.style.color = 'var(--text-secondary)';
+                                                        }}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/>
+                                                        </svg>
+                                                        Watch
+                                                    </a>
+                                                ) : (
+                                                    <a
+                                                        href={`../index.html?director=${encodeURIComponent(director.name)}`}
+                                                        style={{
+                                                            padding: '8px 16px',
+                                                            background: 'var(--bg-tertiary)',
+                                                            border: '1px solid var(--border)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-secondary)',
+                                                            textDecoration: 'none',
+                                                            fontSize: '13px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.borderColor = 'var(--accent)';
+                                                            e.currentTarget.style.color = 'var(--accent)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.borderColor = 'var(--border)';
+                                                            e.currentTarget.style.color = 'var(--text-secondary)';
+                                                        }}
+                                                    >
+                                                        View frames →
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -711,27 +749,29 @@
                             </div>
                         )}
 
-                        {/* View Frames Link */}
-                        <div style={{ textAlign: 'center', marginTop: '48px' }}>
-                            <a
-                                href={`../index.html?director=${encodeURIComponent(director.name)}`}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '16px 32px',
-                                    background: 'var(--accent)',
-                                    color: '#000',
-                                    borderRadius: '8px',
-                                    textDecoration: 'none',
-                                    fontSize: '16px',
-                                    fontWeight: 600,
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                View All Frames →
-                            </a>
-                        </div>
+                        {/* View Frames Link — only when there is something to show */}
+                        {totalFrames > 0 && (
+                            <div style={{ textAlign: 'center', marginTop: '48px' }}>
+                                <a
+                                    href={`../index.html?director=${encodeURIComponent(director.name)}`}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '16px 32px',
+                                        background: 'var(--accent)',
+                                        color: '#000',
+                                        borderRadius: '8px',
+                                        textDecoration: 'none',
+                                        fontSize: '16px',
+                                        fontWeight: 600,
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    View all {totalFrames.toLocaleString()} frames →
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -739,32 +779,31 @@
 
         // Main App
         const App = () => {
-            const [selectedDirector, setSelectedDirector] = useState(null);
+            // Read the hash during the initial state so arriving at #director-id renders
+            // the profile immediately, instead of flashing the full list for one frame.
+            const [selectedDirector, setSelectedDirector] = useState(() => getDirectorFromHash() || null);
 
             useEffect(() => {
-                // Check URL hash on load
-                const director = getDirectorFromHash();
-                if (director) {
-                    setSelectedDirector(director);
-                }
-
-                // Listen for hash changes
+                // hashchange is the single source of truth (covers browser back/forward)
                 const handleHashChange = () => {
-                    const director = getDirectorFromHash();
-                    setSelectedDirector(director || null);
+                    setSelectedDirector(getDirectorFromHash() || null);
                 };
-
                 window.addEventListener('hashchange', handleHashChange);
                 return () => window.removeEventListener('hashchange', handleHashChange);
             }, []);
 
+            // Always land at the top when switching between list and profile
+            useEffect(() => {
+                window.scrollTo(0, 0);
+            }, [selectedDirector]);
+
             const handleSelectDirector = (director) => {
-                window.location.hash = director.id;
-                setSelectedDirector(director);
+                window.location.hash = director.id; // hashchange sets the state
             };
 
             const handleBack = () => {
-                window.location.hash = '';
+                // replaceState avoids stacking empty "#" entries in history
+                window.history.replaceState(null, '', window.location.pathname);
                 setSelectedDirector(null);
             };
 
