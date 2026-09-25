@@ -4,6 +4,10 @@ content/
 # Admin config (local only, large file)
 berwaz-config.json
 
+# Python cache
+__pycache__/
+*.pyc
+
 # OS files
 .DS_Store
 Thumbs.db
