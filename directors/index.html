@@ -278,7 +278,7 @@
                 direction: 'rtl'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    <a href="../index.html" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                    <a href="../index.html" title="Back to the library" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
                         <svg width="50" height="32" viewBox="0 0 700 450" fill="none">
                             <path d="M78.5 226C28.5 196 0 176 0 176L580 125C580 125 620 145 620 165C620 185 580 205 580 205L78.5 226Z" fill="#ffd900"/>
                             <polygon points="600,100 640,130 620,165 580,135" fill="#ffd900"/>
@@ -314,25 +314,6 @@
                             ← Back to Directors
                         </button>
                     )}
-                    <a
-                        href="../index.html"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 20px',
-                            background: 'var(--accent)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: '#000',
-                            textDecoration: 'none',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        ← Main Page
-                    </a>
                 </div>
             </header>
         );
@@ -580,14 +561,6 @@
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(10,10,10,.55) 0%, rgba(10,10,10,.85) 70%, var(--bg-primary) 100%)' }} />
 
                         <div style={{ position: 'relative', maxWidth: '1400px', margin: '0 auto', padding: '40px 32px 56px' }}>
-                            <button
-                                onClick={onBack}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', padding: 0, marginBottom: '36px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-                                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-                            >
-                                ← All directors
-                            </button>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '32px', alignItems: 'end' }} className="profile-hero-grid">
                                 <div style={{ direction: 'rtl', textAlign: 'right' }}>
