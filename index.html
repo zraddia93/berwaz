@@ -893,6 +893,13 @@
         // Frame Detail Modal
         const FrameModal = ({ frame, onClose, onFilterByDirector, onFilterBySource, onFilterByTag }) => {
             const [promptCopied, setPromptCopied] = useState(false);
+            const [promptExpanded, setPromptExpanded] = useState(false);
+
+            // Reset prompt state when switching frames
+            useEffect(() => {
+                setPromptExpanded(false);
+                setPromptCopied(false);
+            }, [frame && frame.id]);
 
             // Close on Escape key
             useEffect(() => {
@@ -1038,7 +1045,7 @@
                             <p style={{
                                 fontSize: '16px',
                                 color: 'var(--text-secondary)',
-                                marginBottom: '32px'
+                                marginBottom: '24px'
                             }}>
                                 <span
                                     onClick={() => onFilterBySource(frame.source)}
@@ -1061,7 +1068,7 @@
                                 display: 'grid',
                                 gridTemplateColumns: '1fr 1fr',
                                 gap: '24px',
-                                marginBottom: '32px'
+                                marginBottom: '24px'
                             }}>
                                 <div>
                                     <div style={{
@@ -1128,7 +1135,7 @@
                             </div>
 
                             {/* Color Palette */}
-                            <div style={{ marginBottom: '32px' }}>
+                            <div style={{ marginBottom: '24px' }}>
                                 <div style={{
                                     fontSize: '10px',
                                     textTransform: 'uppercase',
@@ -1161,7 +1168,7 @@
                             </div>
 
                             {/* Tags */}
-                            <div style={{ marginBottom: '32px' }}>
+                            <div style={{ marginBottom: '24px' }}>
                                 <div style={{
                                     fontSize: '10px',
                                     textTransform: 'uppercase',
@@ -1203,7 +1210,7 @@
 
                             {/* AI Image Prompt */}
                             {frame.prompt && (
-                                <div style={{ marginBottom: '32px' }}>
+                                <div style={{ marginBottom: '24px' }}>
                                     <div style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1255,7 +1262,7 @@
                                         </button>
                                     </div>
                                     <div style={{
-                                        padding: '14px 16px',
+                                        padding: '12px 14px',
                                         background: 'var(--bg-tertiary)',
                                         border: '1px solid var(--border)',
                                         borderRadius: '10px',
@@ -1264,14 +1271,30 @@
                                         color: 'var(--text-secondary)',
                                         userSelect: 'text'
                                     }}>
-                                        {frame.prompt}
-                                    </div>
-                                    <div style={{
-                                        marginTop: '8px',
-                                        fontSize: '11px',
-                                        color: 'var(--text-tertiary)'
-                                    }}>
-                                        Paste into Midjourney, Nano Banana, ChatGPT or any image model to recreate this look.
+                                        <div
+                                            className={promptExpanded ? '' : 'prompt-clamp'}
+                                            style={{ transition: 'all 0.2s' }}
+                                        >
+                                            {frame.prompt}
+                                        </div>
+                                        <button
+                                            onClick={() => setPromptExpanded(!promptExpanded)}
+                                            style={{
+                                                marginTop: '8px',
+                                                padding: 0,
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'var(--accent)',
+                                                fontSize: '12px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                        >
+                                            {promptExpanded ? 'Show less ↑' : 'Show more ↓'}
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -1924,6 +1947,14 @@
         }
         @media (min-width: 769px) {
             .mobile-menu-btn { display: none !important; }
+        }
+
+        /* AI prompt collapsed preview (3 lines) */
+        .prompt-clamp {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         /* Modal sidebar scrollbar */
