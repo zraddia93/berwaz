@@ -924,7 +924,7 @@
                         zIndex: 200,
                         background: 'rgba(0,0,0,0.95)',
                         display: 'flex',
-                        alignItems: isMobile ? 'flex-start' : 'center',
+                        alignItems: 'flex-start',
                         justifyContent: 'center',
                         padding: isMobile ? '16px' : '40px',
                         overflowY: 'auto',
@@ -961,19 +961,26 @@
                             maxWidth: '1400px',
                             width: '100%',
                             display: 'grid',
-                            gridTemplateColumns: isMobile ? '1fr' : '1fr 380px',
+                            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 380px',
+                            alignItems: 'start',
                             gap: isMobile ? '20px' : '40px',
                             animation: 'scaleIn 0.3s ease-out',
-                            marginTop: isMobile ? '60px' : '0',
-                            marginBottom: isMobile ? '20px' : '0'
+                            // margin:auto centers vertically when content fits, and
+                            // lets it start from the top (scrollable) when it doesn't
+                            margin: isMobile ? '60px 0 20px' : 'auto'
                         }}
                     >
                         {/* Image/GIF */}
                         <div style={{
-                            position: 'relative',
+                            position: isMobile ? 'relative' : 'sticky',
+                            top: 0,
                             borderRadius: '8px',
                             overflow: 'hidden',
-                            background: 'var(--bg-secondary)'
+                            background: 'var(--bg-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            maxHeight: isMobile ? 'none' : 'calc(100vh - 80px)'
                         }}>
                             <img
                                 src={frame.image}
@@ -981,6 +988,8 @@
                                 style={{
                                     width: '100%',
                                     height: 'auto',
+                                    maxHeight: isMobile ? 'none' : 'calc(100vh - 80px)',
+                                    objectFit: 'contain',
                                     display: 'block'
                                 }}
                             />
@@ -1902,12 +1911,6 @@
         @media (max-width: 768px) {
             .modal-content {
                 grid-template-columns: 1fr !important;
-                max-height: 90vh;
-                overflow-y: auto;
-            }
-            .modal-sidebar {
-                max-height: none !important;
-                overflow-y: visible !important;
             }
         }
 
