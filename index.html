@@ -217,40 +217,39 @@
 
         // Project → Category assignments (managed from admin panel, regenerated on publish)
         const PROJECT_CATEGORIES = {
-            "Aramco Founding Day": "Saudi Founding Day",
-            "Dalila": "Branding Films",
-            "sayaar - درعك ضد البرد": "Commercial Films",
-            "world cup song yalla 2024": "Branding Films",
-            "كأس العالم للأندية - هلا بالأبطال": "Branding Films",
-            "jeddahseason little asia - موسم جده": "Branding Films",
-            "وزارة الدفاع   مصيونة": "Saudi National Day",
-            "الحرس الوطني - صمام الأمان": "Saudi National Day",
-            "konoz": "Branding Films",
-            "أوتليت الرياض - رقية و سبيكة": "Branding Films",
-            "مسك - سلايل   misk - slayel": "Saudi National Day",
-            "thechefz - العيد": "Branding Films",
-            "download": "Branding Films",
-            "hyundai   driven by you": "Saudi National Day",
-            "النصر - اليوم الوطني": "Saudi National Day",
-            "MadeInSaudi": "Saudi National Day",
-            " A Nation Built - Misk Founding Day '25": "Saudi Founding Day",
-            "Migabil Alsaad - GOSI Founding Day '25": "Saudi Founding Day",
-            "DGDA": "Saudi National Day",
-            "marsool": "Branding Films",
-            "tawuniya - miami": "Branding Films",
-            "كأس العالم للرياضات الالكترونية - ewc": "Branding Films",
-            "NiceOne BlackFriday": "Branding Films",
-            "As One - DGDA Saudi National Day '95": "Branding Films",
-            "Solo Menu Ennabi Grill ": "Branding Films",
-            "KONOZ - Saudi National Day '95": "Saudi National Day",
-            "Marsool": "Branding Films",
-            "الحرس الوطني - عيالي فداها": "Saudi National Day",
-            "موسم الرياض - الموسم عود": "Branding Films",
-            "Aramco National Day": "Saudi National Day",
-            "وزارة السياحة - كلنا يمناك": "Saudi Founding Day",
-            "root-full roots": "Saudi Founding Day",
-            "Tourism": "Branding Films",
-            "metamorphosis   ndf snd 93 film": "Saudi National Day"
+            "Saudi Tourism Authority — Dalila": "Branding Films",
+            "Saudi Made": "Saudi National Day",
+            "Mrsool": "Branding Films",
+            "NiceOne — Black Friday": "Branding Films",
+            "Saudi Tourism Authority": "Branding Films",
+            "Aramco — Founding Day": "Saudi Founding Day",
+            "Aramco — National Day": "Saudi National Day",
+            "Misk — A Nation Built — Founding Day '25": "Saudi Founding Day",
+            "DGDA — As One — National Day '95": "Branding Films",
+            "MEWA — Full Roots": "Saudi Founding Day",
+            "DGDA — Founding Day": "Saudi National Day",
+            "Kudo": "Branding Films",
+            "Ennabi Grill — Solo Menu": "Branding Films",
+            "Tawuniya — Miami": "Branding Films",
+            "Konoz — National Day '95": "Saudi National Day",
+            "WCH — Yalla — World Cup Song 2024": "Branding Films",
+            "Misk — Slayel": "Saudi National Day",
+            "Ministry of Defense — Masyouna": "Saudi National Day",
+            "GOSI — Migabil Alsaad — Founding Day '25": "Saudi Founding Day",
+            "Hyundai — Driven By You": "Saudi National Day",
+            "Konoz — Brand": "Branding Films",
+            "NDF — Metamorphosis — National Day 93": "Saudi National Day",
+            "Jeddah Season — Little Asia": "Branding Films",
+            "Sayyar — Dir'ak Dhid Al-Bard": "Commercial Films",
+            "The Chefz — Eid": "Branding Films",
+            "National Guard — Ayali Fidaha": "Saudi National Day",
+            "Al Nassr FC — National Day": "Saudi National Day",
+            "Riyadh Season — Al Mawsim Aad": "Branding Films",
+            "Ministry of Tourism — Kulna Yamnak": "Saudi Founding Day",
+            "World Club Cup — Hala Champions": "Branding Films",
+            "Ministry of National Guard — Safety Valve": "Saudi National Day",
+            "Riyadh Season — Riyadh Outlet": "Branding Films",
+            "Esports World Cup (EWC)": "Branding Films"
         };
 
         // How many frames to render per page (1920 animated GIFs at once melts mobile Safari)
@@ -1049,34 +1048,42 @@
                               paddingRight: isMobile ? 0 : '8px',
                               marginRight: isMobile ? 0 : '-8px'
                           }}>
-                            {/* Title & Source */}
-                            <h2 style={{
-                                fontSize: isMobile ? '22px' : '28px',
-                                fontWeight: 600,
-                                letterSpacing: '-0.02em',
-                                marginBottom: '8px'
-                            }}>
-                                {frame.title}
+                            {/* Project (headline) + Arabic + meta */}
+                            <h2
+                                onClick={() => onFilterBySource(frame.source)}
+                                title="View all frames from this project"
+                                style={{
+                                    fontSize: isMobile ? '22px' : '26px',
+                                    fontWeight: 600,
+                                    letterSpacing: '-0.02em',
+                                    lineHeight: 1.2,
+                                    marginBottom: '6px',
+                                    cursor: 'pointer',
+                                    transition: 'color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = ''}
+                            >
+                                {frame.source}
                             </h2>
+                            {frame.sourceAr && (
+                                <div dir="rtl" style={{
+                                    fontFamily: "'HT Moshreq Pro', sans-serif",
+                                    fontSize: isMobile ? '18px' : '21px',
+                                    color: 'var(--accent)',
+                                    textAlign: 'left',
+                                    marginBottom: '8px'
+                                }}>
+                                    {frame.sourceAr}
+                                </div>
+                            )}
                             <p style={{
-                                fontSize: '16px',
-                                color: 'var(--text-secondary)',
+                                fontSize: '12px',
+                                fontFamily: "'JetBrains Mono', monospace",
+                                color: 'var(--text-tertiary)',
                                 marginBottom: '24px'
                             }}>
-                                <span
-                                    onClick={() => onFilterBySource(frame.source)}
-                                    style={{
-                                        cursor: 'pointer',
-                                        transition: 'color 0.2s',
-                                        borderBottom: '1px dashed var(--text-tertiary)'
-                                    }}
-                                    onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
-                                    onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
-                                    title="View all frames from this project"
-                                >
-                                    {frame.source}
-                                </span>
-                                {' '}({frame.year})
+                                {frame.year} · #{frame.id}
                             </p>
 
                             {/* Metadata Grid */}
@@ -1799,6 +1806,7 @@
                     const q = norm(searchQuery);
                     result = result.filter(f =>
                         norm(f.source).includes(q) ||
+                        norm(f.sourceAr).includes(q) ||
                         norm(f.director).includes(q) ||
                         norm(f.title).includes(q) ||
                         norm(f.mood).includes(q) ||

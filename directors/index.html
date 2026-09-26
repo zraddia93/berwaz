@@ -326,7 +326,7 @@
         const worksFor = (name) => {
             const map = {};
             ALL_FRAMES.filter(f => f.director === name).forEach(f => {
-                (map[f.source] ||= { title: f.source, year: f.year, frames: [] }).frames.push(f);
+                (map[f.source] ||= { title: f.source, titleAr: f.sourceAr || '', year: f.year, frames: [] }).frames.push(f);
             });
             return Object.values(map).sort((a, b) => b.frames.length - a.frames.length || b.year - a.year);
         };
@@ -540,8 +540,15 @@
                             </div>
                         </div>
                         <div style={{ padding: '14px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {work.title}
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {work.title}
+                                </div>
+                                {work.titleAr && (
+                                    <div dir="rtl" style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: '15px', color: 'var(--accent)', textAlign: 'left', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {work.titleAr}
+                                    </div>
+                                )}
                             </div>
                             <span style={{ fontSize: '12px', color: hover ? 'var(--accent)' : 'var(--text-tertiary)', flexShrink: 0, transition: 'color .2s' }}>
                                 Study →
