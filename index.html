@@ -316,6 +316,26 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                 </svg>
+            ),
+            Bookmark: ({ filled, size = 16 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+                    <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>
+                </svg>
+            ),
+            Plus: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+            ),
+            Trash: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+            ),
+            Link: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            ),
+            Image: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            ),
+            Check: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m5 12 5 5L20 7"/></svg>
             )
         };
 
@@ -375,6 +395,122 @@
             );
         };
 
+        // ═══════════════════════════════════════════════════════════════
+        // BOARDS (moodboards) — saved in this browser, shareable by link.
+        // Data shape is deliberately backend-ready: { id, name, frames: [id], createdAt, updatedAt }
+        // ═══════════════════════════════════════════════════════════════
+        const BOARDS_KEY = 'berwaz_boards_v1';
+        const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+
+        const loadBoards = () => {
+            try {
+                const raw = localStorage.getItem(BOARDS_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr.filter(b => b && b.id && Array.isArray(b.frames)) : [];
+            } catch { return []; }
+        };
+        const persistBoards = (boards) => {
+            try { localStorage.setItem(BOARDS_KEY, JSON.stringify(boards)); } catch {}
+        };
+
+        const useBoards = () => {
+            const [boards, setBoards] = useState(loadBoards);
+            const [lastBoardId, setLastBoardId] = useState(() => { try { return localStorage.getItem(BOARDS_KEY + '_last') || null; } catch { return null; } });
+
+            useEffect(() => { persistBoards(boards); }, [boards]);
+            useEffect(() => { try { lastBoardId ? localStorage.setItem(BOARDS_KEY + '_last', lastBoardId) : localStorage.removeItem(BOARDS_KEY + '_last'); } catch {} }, [lastBoardId]);
+
+            // Keep tabs in sync
+            useEffect(() => {
+                const onStorage = (e) => { if (e.key === BOARDS_KEY) setBoards(loadBoards()); };
+                window.addEventListener('storage', onStorage);
+                return () => window.removeEventListener('storage', onStorage);
+            }, []);
+
+            const createBoard = useCallback((name, frames = []) => {
+                const b = { id: uid(), name: (name || 'Untitled board').trim().slice(0, 60), frames: [...new Set(frames)], createdAt: Date.now(), updatedAt: Date.now() };
+                setBoards(prev => [b, ...prev]);
+                setLastBoardId(b.id);
+                return b;
+            }, []);
+            const renameBoard = useCallback((id, name) => {
+                setBoards(prev => prev.map(b => b.id === id ? { ...b, name: (name || b.name).trim().slice(0, 60), updatedAt: Date.now() } : b));
+            }, []);
+            const deleteBoard = useCallback((id) => {
+                setBoards(prev => prev.filter(b => b.id !== id));
+                setLastBoardId(prev => prev === id ? null : prev);
+            }, []);
+            const toggleFrame = useCallback((boardId, frameId) => {
+                let added = false;
+                setBoards(prev => prev.map(b => {
+                    if (b.id !== boardId) return b;
+                    const has = b.frames.includes(frameId);
+                    added = !has;
+                    return { ...b, frames: has ? b.frames.filter(x => x !== frameId) : [...b.frames, frameId], updatedAt: Date.now() };
+                }));
+                setLastBoardId(boardId);
+                return added;
+            }, []);
+            const removeFrame = useCallback((boardId, frameId) => {
+                setBoards(prev => prev.map(b => b.id === boardId ? { ...b, frames: b.frames.filter(x => x !== frameId), updatedAt: Date.now() } : b));
+            }, []);
+            const moveFrame = useCallback((boardId, from, to) => {
+                setBoards(prev => prev.map(b => {
+                    if (b.id !== boardId) return b;
+                    const arr = [...b.frames]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+                    return { ...b, frames: arr, updatedAt: Date.now() };
+                }));
+            }, []);
+
+            const savedIn = useCallback((frameId) => boards.filter(b => b.frames.includes(frameId)).map(b => b.id), [boards]);
+            const totalSaved = useMemo(() => new Set(boards.flatMap(b => b.frames)).size, [boards]);
+
+            return { boards, lastBoardId, createBoard, renameBoard, deleteBoard, toggleFrame, removeFrame, moveFrame, savedIn, totalSaved };
+        };
+
+        // Share links: ?board=<base64url of "name|id,id,id">  — compact, no backend needed
+        const encodeBoardLink = (board) => {
+            const payload = `${board.name}|${board.frames.join(',')}`;
+            const b64 = btoa(unescape(encodeURIComponent(payload))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            const u = new URL(window.location.href);
+            u.search = ''; u.hash = '';
+            u.searchParams.set('board', b64);
+            return u.toString();
+        };
+        const decodeBoardLink = (param) => {
+            try {
+                const b64 = param.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((param.length + 3) % 4);
+                const payload = decodeURIComponent(escape(atob(b64)));
+                const i = payload.indexOf('|');
+                if (i < 0) return null;
+                const name = payload.slice(0, i).trim().slice(0, 60) || 'Shared board';
+                const frames = payload.slice(i + 1).split(',').map(x => x.trim()).filter(Boolean);
+                return frames.length ? { name, frames } : null;
+            } catch { return null; }
+        };
+
+        // Toast (single, bottom-center)
+        const Toast = ({ toast }) => {
+            if (!toast) return null;
+            return (
+                <div role="status" style={{
+                    position: 'fixed', left: '50%', bottom: '28px', transform: 'translateX(-50%)',
+                    zIndex: 400, padding: '12px 18px', borderRadius: '10px',
+                    background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                    color: 'var(--text-primary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px',
+                    boxShadow: '0 12px 40px rgba(0,0,0,.6)', animation: 'fadeIn .2s ease-out', maxWidth: 'calc(100vw - 32px)'
+                }}>
+                    <span style={{ color: 'var(--accent)', display: 'flex' }}><Icons.Check /></span>
+                    <span>{toast.text}</span>
+                    {toast.action && (
+                        <button onClick={toast.action.onClick} style={{ marginLeft: '6px', background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', fontSize: '13px', padding: 0 }}>
+                            {toast.action.label}
+                        </button>
+                    )}
+                </div>
+            );
+        };
+
         // Responsive hook — re-evaluates on resize/rotation (unlike a one-off innerWidth read)
         const useMediaQuery = (query) => {
             const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -392,7 +528,7 @@
         const norm = (s) => (s || '').normalize('NFC').toLowerCase().trim();
 
         // Minimal Header
-        const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, onShowAbout, onShowFeatured, frameSize, setFrameSize, headerRef }) => {
+        const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, onShowAbout, onShowFeatured, onShowBoards, boardsCount, frameSize, setFrameSize, headerRef }) => {
             const [focused, setFocused] = useState(false);
             const [showMobileMenu, setShowMobileMenu] = useState(false);
 
@@ -592,6 +728,34 @@
                                 Featured Visuals
                             </button>
 
+                            {/* Boards */}
+                            <button
+                                onClick={onShowBoards}
+                                aria-label="My boards"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 16px',
+                                    background: 'transparent',
+                                    color: boardsCount ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = boardsCount ? 'var(--text-primary)' : 'var(--text-secondary)'; }}
+                            >
+                                <Icons.Bookmark filled={boardsCount > 0} size={14} />
+                                Boards
+                                {boardsCount > 0 && (
+                                    <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>{boardsCount}</span>
+                                )}
+                            </button>
+
                             {/* Filters Button */}
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
@@ -676,6 +840,27 @@
                                 <Icons.User />
                                 Directors
                             </a>
+                            <button
+                                onClick={() => { onShowBoards(); setShowMobileMenu(false); }}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '14px 16px',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    width: '100%',
+                                    textAlign: 'left'
+                                }}
+                            >
+                                <Icons.Bookmark filled={boardsCount > 0} size={14} />
+                                My Boards{boardsCount > 0 ? ` (${boardsCount})` : ''}
+                            </button>
                             <button
                                 onClick={() => { onShowFeatured(); setShowMobileMenu(false); }}
                                 style={{
@@ -796,6 +981,78 @@
             </div>
         );
 
+        // Popover to choose which board a frame goes to (or create one)
+        const BoardPicker = ({ frame, boardsApi, onDone, anchorRect }) => {
+            const { boards, toggleFrame, createBoard, savedIn } = boardsApi;
+            const [creating, setCreating] = useState(boards.length === 0);
+            const [name, setName] = useState('');
+            const ref = useRef(null);
+            const inputRef = useRef(null);
+            const saved = new Set(savedIn(frame.id));
+
+            useEffect(() => {
+                const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onDone(); };
+                const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onDone(); } };
+                document.addEventListener('mousedown', onDown);
+                document.addEventListener('keydown', onKey, true);
+                return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey, true); };
+            }, [onDone]);
+            useEffect(() => { if (creating && inputRef.current) inputRef.current.focus(); }, [creating]);
+
+            const submitNew = () => {
+                const n = name.trim(); if (!n) return;
+                const b = createBoard(n, [frame.id]);
+                onDone({ text: `Saved to “${b.name}”` });
+            };
+
+            // Position: below the anchor if given, else centered in viewport (mobile / modal)
+            const style = anchorRect
+                ? { position: 'fixed', top: Math.min(anchorRect.bottom + 8, window.innerHeight - 320), left: Math.max(8, Math.min(anchorRect.right - 260, window.innerWidth - 268)) }
+                : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+
+            return (
+                <div ref={ref} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Choose a board" style={{
+                    ...style, zIndex: 350, width: '260px',
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px',
+                    boxShadow: '0 20px 60px rgba(0,0,0,.7)', padding: '8px', animation: 'scaleIn .15s ease-out'
+                }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', padding: '6px 10px 8px' }}>
+                        Save to board
+                    </div>
+                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {boards.map(b => {
+                            const on = saved.has(b.id);
+                            return (
+                                <button key={b.id} onClick={() => { const added = toggleFrame(b.id, frame.id); onDone({ text: added ? `Saved to “${b.name}”` : `Removed from “${b.name}”` }); }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', textAlign: 'left' }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
+                                    <span style={{ width: '18px', height: '18px', borderRadius: '5px', border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'var(--accent)' : 'transparent', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        {on && <Icons.Check />}
+                                    </span>
+                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace" }}>{b.frames.length}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {creating ? (
+                        <div style={{ display: 'flex', gap: '6px', padding: '6px 4px 2px' }}>
+                            <input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') submitNew(); }}
+                                placeholder="New board name" maxLength={60}
+                                style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} />
+                            <button onClick={submitNew} disabled={!name.trim()} style={{ padding: '8px 12px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', opacity: name.trim() ? 1 : .5 }}>Add</button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setCreating(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 10px', marginTop: boards.length ? '4px' : 0, borderTop: boards.length ? '1px solid var(--border)' : 'none', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', borderRadius: '0 0 8px 8px' }}>
+                            <Icons.Plus /> New board
+                        </button>
+                    )}
+                </div>
+            );
+        };
+
         // Parse "16:9" / "2.39:1" into a CSS aspect-ratio number; default 16/9
         const parseAspect = (a) => {
             if (!a) return 16 / 9;
@@ -808,13 +1065,14 @@
         // Frame Card — shows the WHOLE frame at its true aspect ratio (a composition
         // reference must never crop the composition). Size is stable per frame, so
         // cards don't jump when filters change.
-        const FrameCard = ({ frame, index, onClick }) => {
+        const FrameCard = ({ frame, index, onClick, isSaved, onSave }) => {
             const [loaded, setLoaded] = useState(false);
             const [failed, setFailed] = useState(false);
             const [hovered, setHovered] = useState(false);
             const [ratio, setRatio] = useState(() => parseAspect(frame.aspect));
 
             const handleOpen = () => onClick(frame);
+            const showSave = hovered || isSaved;
 
             return (
                 <div
@@ -884,12 +1142,35 @@
                             }}
                         />
                     )}
+
+                    {/* Save to board */}
+                    {onSave && (
+                        <button
+                            className="card-save"
+                            aria-label={isSaved ? 'Saved — change boards' : 'Save to board'}
+                            aria-pressed={isSaved}
+                            onClick={(e) => { e.stopPropagation(); onSave(frame, e.currentTarget.getBoundingClientRect()); }}
+                            style={{
+                                position: 'absolute', top: '10px', right: '10px',
+                                width: '34px', height: '34px', minHeight: 0, minWidth: 0, padding: 0,
+                                borderRadius: '8px', border: '1px solid rgba(255,255,255,.12)',
+                                background: isSaved ? 'var(--accent)' : 'rgba(0,0,0,.65)',
+                                color: isSaved ? '#000' : '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', backdropFilter: 'blur(8px)',
+                                opacity: showSave ? 1 : 0, transform: showSave ? 'translateY(0)' : 'translateY(-4px)',
+                                transition: 'opacity .2s, transform .2s, background .2s'
+                            }}
+                        >
+                            <Icons.Bookmark filled={isSaved} size={15} />
+                        </button>
+                    )}
                 </div>
             );
         };
 
         // Frame Detail Modal
-        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag }) => {
+        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, isSaved, onSave }) => {
             const [promptCopied, setPromptCopied] = useState(false);
             const [promptExpanded, setPromptExpanded] = useState(false);
             const [imgLoaded, setImgLoaded] = useState(false);
@@ -913,11 +1194,13 @@
                     if (e.key === 'Escape') onClose();
                 };
                 document.addEventListener('keydown', handleKeyDown);
-                // Prevent body scroll when modal is open
+                // Prevent body scroll when modal is open (restore whatever it was, so a
+                // modal underneath keeps its own lock)
+                const prevOverflow = document.body.style.overflow;
                 document.body.style.overflow = 'hidden';
                 return () => {
                     document.removeEventListener('keydown', handleKeyDown);
-                    document.body.style.overflow = '';
+                    document.body.style.overflow = prevOverflow;
                 };
             }, [onClose]);
 
@@ -932,7 +1215,7 @@
                     style={{
                         position: 'fixed',
                         inset: 0,
-                        zIndex: 200,
+                        zIndex: 230,
                         background: 'rgba(0,0,0,0.95)',
                         display: 'flex',
                         alignItems: 'flex-start',
@@ -950,7 +1233,7 @@
                             position: 'fixed',
                             top: '16px',
                             right: '16px',
-                            zIndex: 210,
+                            zIndex: 240,
                             width: '44px',
                             height: '44px',
                             display: 'flex',
@@ -1349,6 +1632,24 @@
                                 gap: '12px',
                                 flexShrink: 0
                             }}>
+                                {onSave && (
+                                    <button
+                                        onClick={(e) => onSave(frame, e.currentTarget.getBoundingClientRect())}
+                                        aria-pressed={isSaved}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                            padding: '14px 18px',
+                                            background: isSaved ? 'var(--accent)' : 'var(--bg-tertiary)',
+                                            color: isSaved ? '#000' : 'var(--text-primary)',
+                                            border: `1px solid ${isSaved ? 'var(--accent)' : 'var(--border)'}`,
+                                            borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                                            transition: 'all .2s', flexShrink: 0
+                                        }}
+                                    >
+                                        <Icons.Bookmark filled={isSaved} size={15} />
+                                        {isSaved ? 'Saved' : 'Save'}
+                                    </button>
+                                )}
                                 {/* Blob download needs CORS on the R2 bucket. If that fails we
                                     swap in a real link the user clicks — window.open() after an
                                     await gets eaten by popup blockers. */}
@@ -1686,6 +1987,256 @@
             );
         };
 
+        // ═══════════════════════════════════════════════════════════════
+        // BOARDS MODAL — manage moodboards, view a board, export
+        // ═══════════════════════════════════════════════════════════════
+        const useModalChrome = (onClose, escEnabled = true) => {
+            useEffect(() => {
+                const onKey = (e) => { if (e.key === 'Escape' && escEnabled) onClose(); };
+                document.addEventListener('keydown', onKey);
+                const prev = document.body.style.overflow;
+                document.body.style.overflow = 'hidden';
+                return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+            }, [onClose, escEnabled]);
+        };
+
+        // Render a board as a single contact-sheet PNG (needs CORS on R2; falls back gracefully)
+        const renderBoardImage = async (board, frames) => {
+            const items = board.frames.map(id => frames.find(f => f.id === id)).filter(Boolean);
+            if (!items.length) throw new Error('empty');
+            const cols = items.length <= 4 ? 2 : items.length <= 9 ? 3 : 4;
+            const W = 480, H = 270, PAD = 24, GAP = 16, HEADER = 110;
+            const rows = Math.ceil(items.length / cols);
+            const c = document.createElement('canvas');
+            c.width = PAD * 2 + cols * W + (cols - 1) * GAP;
+            c.height = HEADER + PAD + rows * (H + 34 + GAP) + PAD;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
+            ctx.fillStyle = '#ffd900'; ctx.font = '700 34px "Space Grotesk", Arial, sans-serif';
+            ctx.fillText(board.name, PAD, 54);
+            ctx.fillStyle = '#777'; ctx.font = '13px "JetBrains Mono", monospace';
+            ctx.fillText(`${items.length} frames · Berwaz · برواز`, PAD, 82);
+            const load = (src) => new Promise((res, rej) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+            for (let i = 0; i < items.length; i++) {
+                const f = items[i]; const r = Math.floor(i / cols), col = i % cols;
+                const x = PAD + col * (W + GAP), y = HEADER + PAD + r * (H + 34 + GAP);
+                ctx.fillStyle = '#161616'; ctx.fillRect(x, y, W, H);
+                try {
+                    const im = await load(f.image);
+                    const sc = Math.max(W / im.width, H / im.height);
+                    const dw = im.width * sc, dh = im.height * sc;
+                    ctx.save(); ctx.beginPath(); ctx.rect(x, y, W, H); ctx.clip();
+                    ctx.drawImage(im, x + (W - dw) / 2, y + (H - dh) / 2, dw, dh); ctx.restore();
+                } catch {
+                    ctx.fillStyle = '#333'; ctx.font = '12px Arial'; ctx.fillText('image unavailable', x + 16, y + H / 2);
+                }
+                ctx.fillStyle = '#eee'; ctx.font = '600 13px "Space Grotesk", Arial, sans-serif';
+                ctx.fillText((f.source || '').slice(0, 52), x, y + H + 18);
+                ctx.fillStyle = '#777'; ctx.font = '11px "JetBrains Mono", monospace';
+                ctx.fillText(`${f.director}  ·  #${f.id}`, x, y + H + 32);
+            }
+            return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+        };
+
+        const BoardsModal = ({ onClose, boardsApi, frames, initialBoardId, onOpenFrame, onToast, isMobile, escEnabled = true }) => {
+            const { boards, createBoard, renameBoard, deleteBoard, removeFrame, moveFrame } = boardsApi;
+            const [activeId, setActiveId] = useState(initialBoardId || null);
+            const [editing, setEditing] = useState(false);
+            const [nameDraft, setNameDraft] = useState('');
+            const [newName, setNewName] = useState('');
+            const [busy, setBusy] = useState(null);
+            const [dragIdx, setDragIdx] = useState(null);
+            useModalChrome(onClose, escEnabled);
+
+            const active = boards.find(b => b.id === activeId) || null;
+            useEffect(() => { if (activeId && !active) setActiveId(null); }, [activeId, active]);
+            const byId = useMemo(() => Object.fromEntries(frames.map(f => [f.id, f])), [frames]);
+            const items = active ? active.frames.map(id => byId[id]).filter(Boolean) : [];
+
+            const copy = async (text) => {
+                try { await navigator.clipboard.writeText(text); return true; }
+                catch { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); document.body.removeChild(ta); return ok; }
+            };
+            const shareLink = async () => { if (await copy(encodeBoardLink(active))) onToast({ text: 'Share link copied' }); };
+            const copyPrompts = async () => {
+                const txt = items.map((f, i) => `${i + 1}. ${f.source} — ${f.director} (#${f.id})\n${f.prompt || ''}`).join('\n\n');
+                if (await copy(txt)) onToast({ text: `${items.length} prompts copied` });
+            };
+            const exportImage = async () => {
+                setBusy('image');
+                try {
+                    const blob = await renderBoardImage(active, frames);
+                    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+                    a.href = url; a.download = `berwaz_${active.name.replace(/[\/\\:*?"<>|#]/g, '_')}.png`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                    onToast({ text: 'Board image downloaded' });
+                } catch (e) {
+                    console.warn('Board export failed', e);
+                    onToast({ text: 'Image export needs CORS on the image host — share link copied instead' });
+                    await copy(encodeBoardLink(active));
+                } finally { setBusy(null); }
+            };
+
+            const Tile = ({ f, i }) => {
+                const [hover, setHover] = useState(false);
+                return (
+                    <div
+                        draggable={!isMobile}
+                        onDragStart={() => setDragIdx(i)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => { if (dragIdx !== null && dragIdx !== i) moveFrame(active.id, dragIdx, i); setDragIdx(null); }}
+                        onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+                        style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-tertiary)', aspectRatio: '16/9', cursor: 'grab', outline: dragIdx === i ? '2px solid var(--accent)' : 'none', opacity: dragIdx === i ? .5 : 1 }}
+                    >
+                        <img src={f.image} alt={f.source} loading="lazy" onClick={() => onOpenFrame(f)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
+                        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,.85))', pointerEvents: 'none' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source}</div>
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.6)' }}>{f.director}</div>
+                        </div>
+                        <button aria-label="Remove from board" onClick={() => removeFrame(active.id, f.id)} style={{ position: 'absolute', top: '8px', right: '8px', width: '28px', height: '28px', minWidth: 0, minHeight: 0, padding: 0, borderRadius: '6px', border: 'none', background: 'rgba(0,0,0,.7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: hover || isMobile ? 1 : 0, transition: 'opacity .2s' }}>
+                            <Icons.X />
+                        </button>
+                    </div>
+                );
+            };
+
+            const btn = (extra = {}) => ({ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 14px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', ...extra });
+
+            return (
+                <div onClick={onClose} role="dialog" aria-modal="true" aria-label="My boards" style={{ position: 'fixed', inset: 0, zIndex: 220, background: 'rgba(0,0,0,.95)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: isMobile ? '12px' : '40px', overflowY: 'auto', overscrollBehavior: 'contain', animation: 'fadeIn .25s ease-out' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '1200px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '16px', animation: 'scaleIn .25s ease-out', margin: isMobile ? '52px 0 12px' : 'auto', minHeight: isMobile ? 'auto' : '60vh', display: 'flex', flexDirection: 'column' }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: isMobile ? '16px' : '20px 24px', borderBottom: '1px solid var(--border)' }}>
+                            {active && (
+                                <button onClick={() => { setActiveId(null); setEditing(false); }} style={btn({ padding: '8px 12px' })}>← Boards</button>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                {active ? (
+                                    editing ? (
+                                        <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={60}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') { renameBoard(active.id, nameDraft); setEditing(false); } if (e.key === 'Escape') setEditing(false); }}
+                                            onBlur={() => { renameBoard(active.id, nameDraft); setEditing(false); }}
+                                            style={{ width: '100%', fontSize: '20px', fontWeight: 600, background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--text-primary)', padding: '6px 10px', outline: 'none' }} />
+                                    ) : (
+                                        <h2 onClick={() => { setNameDraft(active.name); setEditing(true); }} title="Rename" style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 600, margin: 0, cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {active.name} <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 400 }}>· {items.length} frame{items.length === 1 ? '' : 's'}</span>
+                                        </h2>
+                                    )
+                                ) : (
+                                    <h2 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 600, margin: 0 }}>My Boards <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 400 }}>· saved in this browser</span></h2>
+                                )}
+                            </div>
+                            <button onClick={onClose} aria-label="Close" style={btn({ padding: '8px 10px' })}><Icons.X /></button>
+                        </div>
+
+                        {/* Body */}
+                        <div style={{ padding: isMobile ? '16px' : '24px', flex: 1 }}>
+                            {!active ? (
+                                <>
+                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', maxWidth: '460px' }}>
+                                        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New board name" maxLength={60}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) { const b = createBoard(newName); setNewName(''); setActiveId(b.id); } }}
+                                            style={{ flex: 1, padding: '10px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />
+                                        <button onClick={() => { if (newName.trim()) { const b = createBoard(newName); setNewName(''); setActiveId(b.id); } }} disabled={!newName.trim()} style={btn({ background: 'var(--accent)', color: '#000', border: 'none', opacity: newName.trim() ? 1 : .5 })}><Icons.Plus /> Create</button>
+                                    </div>
+                                    {boards.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '56px 20px', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', opacity: .5 }}><Icons.Bookmark size={36} /></div>
+                                            <div style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>No boards yet</div>
+                                            <div style={{ fontSize: '13px', marginTop: '6px' }}>Hover any frame and press the bookmark to start a moodboard.</div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))', gap: '16px' }}>
+                                            {boards.map(b => {
+                                                const covers = b.frames.slice(0, 4).map(id => byId[id]).filter(Boolean);
+                                                return (
+                                                    <div key={b.id} role="button" tabIndex={0} onClick={() => setActiveId(b.id)} onKeyDown={(e) => { if (e.key === 'Enter') setActiveId(b.id); }}
+                                                        style={{ borderRadius: '12px', overflow: 'hidden', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color .2s' }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '2px', aspectRatio: '16/10', background: '#000' }}>
+                                                            {[0, 1, 2, 3].map(i => covers[i]
+                                                                ? <img key={i} src={covers[i].image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                                : <div key={i} style={{ background: 'var(--bg-secondary)' }} />)}
+                                                        </div>
+                                                        <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                                                            <div style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</div>
+                                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>{b.frames.length}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '18px' }}>
+                                        <button onClick={shareLink} disabled={!items.length} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Link /> Copy share link</button>
+                                        <button onClick={exportImage} disabled={!items.length || busy === 'image'} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Image /> {busy === 'image' ? 'Rendering…' : 'Download as image'}</button>
+                                        <button onClick={copyPrompts} disabled={!items.length} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Copy /> Copy all AI prompts</button>
+                                        <span style={{ flex: 1 }} />
+                                        <button onClick={() => { if (confirm(`Delete “${active.name}”?`)) { deleteBoard(active.id); setActiveId(null); onToast({ text: 'Board deleted' }); } }} style={btn({ color: '#ff7b7b' })}><Icons.Trash /> Delete</button>
+                                    </div>
+                                    {items.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '56px 20px', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                                            <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>This board is empty</div>
+                                            <div style={{ fontSize: '13px', marginTop: '6px' }}>Close this and press the bookmark on any frame to add it here.</div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {!isMobile && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '10px' }}>Drag to reorder · click a frame to open it</div>}
+                                            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 150 : 220}px, 100%), 1fr))`, gap: '12px' }}>
+                                                {items.map((f, i) => <Tile key={f.id} f={f} i={i} />)}
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Read-only view of a board opened from a share link
+        const SharedBoardModal = ({ shared, frames, boardsApi, onClose, onOpenFrame, onToast, isMobile, escEnabled = true }) => {
+            useModalChrome(onClose, escEnabled);
+            const byId = useMemo(() => Object.fromEntries(frames.map(f => [f.id, f])), [frames]);
+            const items = shared.frames.map(id => byId[id]).filter(Boolean);
+            const save = () => { const b = boardsApi.createBoard(shared.name, items.map(f => f.id)); onToast({ text: `Saved “${b.name}” to your boards` }); onClose(); };
+            return (
+                <div onClick={onClose} role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 220, background: 'rgba(0,0,0,.95)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: isMobile ? '12px' : '40px', overflowY: 'auto', overscrollBehavior: 'contain', animation: 'fadeIn .25s ease-out' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '1200px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '16px', margin: isMobile ? '52px 0 12px' : 'auto', animation: 'scaleIn .25s ease-out' }}>
+                        <div style={{ padding: isMobile ? '16px' : '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: '200px' }}>
+                                <div style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '4px' }}>Shared board</div>
+                                <h2 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 600, margin: 0 }}>{shared.name} <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 400 }}>· {items.length} frames</span></h2>
+                            </div>
+                            <button onClick={save} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}><Icons.Bookmark filled size={14} /> Save to my boards</button>
+                            <button onClick={onClose} aria-label="Close" style={{ padding: '8px 10px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex' }}><Icons.X /></button>
+                        </div>
+                        <div style={{ padding: isMobile ? '16px' : '24px' }}>
+                            {items.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-tertiary)' }}>None of the frames in this link are available anymore.</div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 150 : 220}px, 100%), 1fr))`, gap: '12px' }}>
+                                    {items.map(f => (
+                                        <div key={f.id} onClick={() => onOpenFrame(f)} style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: 'var(--bg-tertiary)', cursor: 'pointer' }}>
+                                            <img src={f.image} alt={f.source} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,.85))' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source}</div>
+                                                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.6)' }}>{f.director}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // Main App
         const App = () => {
             // Transform embedded data to include full image path and shuffle on load
@@ -1786,6 +2337,46 @@
             const handleCloseAbout = useCallback(() => setShowAbout(false), []);
             const handleCloseFeatured = useCallback(() => setShowFeatured(false), []);
 
+            // ── Boards ──
+            const boardsApi = useBoards();
+            const [showBoards, setShowBoards] = useState(false);
+            const [boardsInitialId, setBoardsInitialId] = useState(null);
+            const [picker, setPicker] = useState(null);          // { frame, rect }
+            const [toast, setToast] = useState(null);
+            const toastTimer = useRef(null);
+            const [sharedBoard, setSharedBoard] = useState(() => {
+                const p = new URLSearchParams(window.location.search).get('board');
+                return p ? decodeBoardLink(p) : null;
+            });
+
+            const showToast = useCallback((t) => {
+                setToast(t);
+                if (toastTimer.current) clearTimeout(toastTimer.current);
+                toastTimer.current = setTimeout(() => setToast(null), 2800);
+            }, []);
+            useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+            const savedSet = useMemo(() => new Set(boardsApi.boards.flatMap(b => b.frames)), [boardsApi.boards]);
+
+            // One-tap save: if there is exactly one board and the frame isn't in it, save directly; otherwise open the picker
+            const handleSave = useCallback((frame, rect) => {
+                const { boards, toggleFrame, lastBoardId } = boardsApi;
+                if (boards.length === 1 && !boards[0].frames.includes(frame.id)) {
+                    toggleFrame(boards[0].id, frame.id);
+                    showToast({ text: `Saved to “${boards[0].name}”`, action: { label: 'Change', onClick: () => { setToast(null); setPicker({ frame, rect: null }); } } });
+                    return;
+                }
+                setPicker({ frame, rect: rect || null });
+            }, [boardsApi, showToast]);
+
+            const handlePickerDone = useCallback((t) => { setPicker(null); if (t) showToast(t); }, [showToast]);
+            const openBoards = useCallback((id = null) => { setBoardsInitialId(id); setShowBoards(true); }, []);
+            const handleCloseBoards = useCallback(() => setShowBoards(false), []);
+            const handleCloseShared = useCallback(() => {
+                setSharedBoard(null);
+                if (window.location.search.includes('board=')) window.history.replaceState(null, '', window.location.pathname);
+            }, []);
+
             // Filter frames
             const filteredFrames = useMemo(() => {
                 let result = frames;
@@ -1866,6 +2457,8 @@
                         setShowFilters={setShowFilters}
                         onShowAbout={() => setShowAbout(true)}
                         onShowFeatured={() => setShowFeatured(true)}
+                        onShowBoards={() => openBoards()}
+                        boardsCount={boardsApi.boards.length}
                         frameSize={frameSize}
                         setFrameSize={setFrameSize}
                     />
@@ -1977,6 +2570,8 @@
                                             frame={frame}
                                             index={index}
                                             onClick={setSelectedFrame}
+                                            isSaved={savedSet.has(frame.id)}
+                                            onSave={handleSave}
                                         />
                                     </div>
                                 ))}
@@ -2027,8 +2622,40 @@
                             onFilterByDirector={handleFilterByDirector}
                             onFilterBySource={handleFilterBySource}
                             onFilterByTag={handleFilterByTag}
+                            isSaved={savedSet.has(selectedFrame.id)}
+                            onSave={handleSave}
                         />
                     )}
+
+                    {/* Boards */}
+                    {showBoards && (
+                        <BoardsModal
+                            onClose={handleCloseBoards}
+                            boardsApi={boardsApi}
+                            frames={frames}
+                            initialBoardId={boardsInitialId}
+                            onOpenFrame={(f) => setSelectedFrame(f)}
+                            onToast={showToast}
+                            isMobile={isMobile}
+                            escEnabled={!selectedFrame && !picker}
+                        />
+                    )}
+                    {sharedBoard && !showBoards && (
+                        <SharedBoardModal
+                            shared={sharedBoard}
+                            frames={frames}
+                            boardsApi={boardsApi}
+                            onClose={handleCloseShared}
+                            onOpenFrame={(f) => setSelectedFrame(f)}
+                            onToast={showToast}
+                            isMobile={isMobile}
+                            escEnabled={!selectedFrame && !picker}
+                        />
+                    )}
+                    {picker && (
+                        <BoardPicker frame={picker.frame} boardsApi={boardsApi} onDone={handlePickerDone} anchorRect={isMobile ? null : picker.rect} />
+                    )}
+                    <Toast toast={toast} />
 
                     {/* About Modal */}
                     {showAbout && (
@@ -2127,6 +2754,11 @@
         @media (min-width: 769px) {
             .mobile-menu-btn { display: none !important; }
         }
+
+        /* Bookmark on cards: always visible where there is no hover (touch) */
+        @media (hover: none) { .card-save { opacity: 1 !important; transform: none !important; } }
+        .frame-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .frame-card:focus-visible .card-save { opacity: 1; transform: none; }
 
         /* AI prompt collapsed preview (3 lines) */
         .prompt-clamp {
