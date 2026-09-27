@@ -153,6 +153,23 @@ def slim_for_site(frames):
     return out
 
 
+def stamp_data_version():
+    """Cache-bust: write frames-data.js?v=<hash> into the pages so browsers refetch new data."""
+    import hashlib, re as _re
+    try:
+        h = hashlib.md5(open(FRAMES_DATA_FILE, 'rb').read()).hexdigest()[:10]
+    except Exception:
+        return
+    for page in ('index.html', os.path.join('directors', 'index.html')):
+        path = os.path.join(".", page)
+        if not os.path.exists(path):
+            continue
+        html = open(path, encoding='utf-8').read()
+        new = _re.sub(r'(src=")((?:\.\./)?frames-data\.js)(?:\?v=[0-9a-f]+)?(")', lambda m: m.group(1) + m.group(2) + '?v=' + h + m.group(3), html)
+        if new != html:
+            open(path, 'w', encoding='utf-8').write(new)
+
+
 def generate_frames_data_js(frames):
     """Generate frames-data.js from frames list"""
     try:
@@ -163,6 +180,7 @@ def generate_frames_data_js(frames):
         with open(FRAMES_DATA_FILE, 'w', encoding='utf-8') as f:
             f.write(content)
         print(f"Generated {FRAMES_DATA_FILE}")
+        stamp_data_version()
         return True
     except Exception as e:
         print(f"Error generating frames-data.js: {e}")

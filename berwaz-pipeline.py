@@ -56,6 +56,7 @@ def save(cfg):
     with open(DATA + '.tmp', 'w', encoding='utf-8') as f:
         f.write('const FRAMES_DATA = ' + json.dumps(slim_for_site(cfg['frames']), separators=(',', ':'), ensure_ascii=False) + ';')
     os.replace(DATA + '.tmp', DATA)
+    stamp_data_version()
 
 def slim_for_site(frames):
     """What the website actually loads: full data stays in berwaz-config.json."""
@@ -67,6 +68,22 @@ def slim_for_site(frames):
             g['pixels'] = {'temp': px.get('temp'), 'tone': px.get('tone')}
         out.append(g)
     return out
+
+def stamp_data_version():
+    """Cache-bust: write frames-data.js?v=<hash> into the pages so browsers refetch new data."""
+    import hashlib, re as _re
+    try:
+        h = hashlib.md5(open(DATA, 'rb').read()).hexdigest()[:10]
+    except Exception:
+        return
+    for page in ('index.html', os.path.join('directors', 'index.html')):
+        path = os.path.join(ROOT, page)
+        if not os.path.exists(path):
+            continue
+        html = open(path, encoding='utf-8').read()
+        new = _re.sub(r'(src=")((?:\.\./)?frames-data\.js)(?:\?v=[0-9a-f]+)?(")', lambda m: m.group(1) + m.group(2) + '?v=' + h + m.group(3), html)
+        if new != html:
+            open(path, 'w', encoding='utf-8').write(new)
 
 def N(s): return unicodedata.normalize('NFC', s or '').strip()
 
