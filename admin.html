@@ -131,7 +131,9 @@
         const api = {
             async getConfig() { const r = await fetch(`${API}/config`); if (!r.ok) throw new Error('Failed'); return r.json(); },
             async saveConfig(c) { const r = await fetch(`${API}/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }); if (!r.ok) throw new Error('Failed'); return r.json(); },
-            async publish() { const r = await fetch(`${API}/publish`, { method: 'POST' }); if (!r.ok) throw new Error('Failed'); return r.json(); }
+            async publish() { const r = await fetch(`${API}/publish`, { method: 'POST' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+            async pipelineStatus() { const r = await fetch(`${API}/pipeline/status`); if (!r.ok) throw new Error('Failed'); return r.json(); },
+            async pipeline(cmd) { const r = await fetch(`${API}/pipeline/${cmd}`, { method: 'POST' }); return r.json(); }
         };
         const slugify = s => s.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
         const frameUrl = f => f.file ? R2_URL + String(f.file).split('/').map(encodeURIComponent).join('/') : '';
@@ -252,6 +254,9 @@
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
                                     <strong style={{ color: 'var(--text-secondary)' }}>Filter Categories:</strong> {(config.filterTags?.projects || []).join(', ') || 'None'}
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                                    <strong style={{ color: 'var(--text-secondary)' }}>Metadata coverage:</strong> {(config.frames||[]).filter(f => f.craft).length} craft · {(config.frames||[]).filter(f => f.pixels).length} palettes · {(config.frames||[]).filter(f => f.prompt).length} prompts — of {(config.frames||[]).length}
                                 </div>
                             </div>
                         </div>
@@ -430,7 +435,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div className="form-group"><label>DP / Cinematographer</label><input value={f.dp||''} onChange={e => s('dp', e.target.value)} /></div>
+                        <div className="form-group"><label>DP / Cinematographer <span style={{ color: 'var(--text-tertiary)', textTransform: 'none', fontWeight: 400 }}>· set for the whole project in Projects → Credits</span></label><input value={(f.credits && f.credits.dp) || f.dp || ''} onChange={e => setF({ ...f, dp: e.target.value, credits: { ...(f.credits || {}), dp: e.target.value } })} /></div>
                         <div className="form-group"><label>Color Palette</label><ColorInput colors={f.color||['#8B7355','#D4A574','#1A1A1A']} onChange={c => s('color', c)} /></div>
                         <div className="form-group"><label>Tags</label><TagInput tags={f.tags||[]} onChange={t => s('tags', t)} /></div>
                         <div className="form-group">
@@ -560,7 +565,7 @@
                 const map = {};
                 (config.frames||[]).forEach(f => {
                     if (!f.source) return;
-                    if (!map[f.source]) map[f.source] = { name: f.source, nameAr: f.sourceAr || '', count: 0, directors: new Set(), years: new Set() };
+                    if (!map[f.source]) map[f.source] = { name: f.source, nameAr: f.sourceAr || '', credits: f.credits || {}, count: 0, directors: new Set(), years: new Set() };
                     map[f.source].count++;
                     map[f.source].directors.add(f.director);
                     map[f.source].years.add(f.year);
@@ -579,6 +584,29 @@
                 const updated = { ...config, projectCategories: newPc };
                 setConfig(updated);
                 api.saveConfig(updated).then(() => showToast(`"${projectName}" → ${category || 'Uncategorized'}`, 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
+            };
+
+            const [creditsFor, setCreditsFor] = useState(null); // project name
+            const CREDIT_ROLES = [['dp','Cinematographer (DP)'],['colorist','Colorist'],['production','Production company'],['agency','Agency']];
+            const saveCredits = (projectName, credits) => {
+                const clean = Object.fromEntries(CREDIT_ROLES.map(([k]) => [k, (credits[k] || '').trim()]).filter(([, v]) => v));
+                const updated = { ...config, frames: config.frames.map(f => f.source === projectName ? { ...f, credits: clean, dp: clean.dp || '' } : f) };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Credits saved for all frames in the project', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
+                setCreditsFor(null);
+            };
+            const CreditsModal = ({ project }) => {
+                const first = config.frames.find(f => f.source === project) || {};
+                const [c, setC] = useState({ ...(first.credits || {}), dp: (first.credits && first.credits.dp) || first.dp || '' });
+                return (
+                    <Modal title={`Credits — ${project}`} onClose={() => setCreditsFor(null)}
+                        footer={<><button className="btn btn-secondary" onClick={() => setCreditsFor(null)}>Cancel</button><button className="btn btn-primary" onClick={() => saveCredits(project, c)}>Save to all frames</button></>}>
+                        <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 14 }}>Applies to every frame of this project. New frames added to the project later inherit these automatically.</p>
+                        {CREDIT_ROLES.map(([k, label]) => (
+                            <div className="form-group" key={k}><label>{label}</label><input value={c[k] || ''} onChange={e => setC({ ...c, [k]: e.target.value })} placeholder="—" /></div>
+                        ))}
+                    </Modal>
+                );
             };
 
             const setArabic = (projectName, ar) => {
@@ -616,7 +644,7 @@
 
                     <div className="card scroll-table" style={{ padding: 0 }}>
                         <table>
-                            <thead><tr><th>Project</th><th>Arabic</th><th>Frames</th><th>Director(s)</th><th>Year(s)</th><th style={{minWidth:180}}>Category</th><th style={{width:90}}>Actions</th></tr></thead>
+                            <thead><tr><th>Project</th><th>Arabic</th><th>Frames</th><th>Director(s)</th><th>Credits</th><th style={{minWidth:180}}>Category</th><th style={{width:150}}>Actions</th></tr></thead>
                             <tbody>{projects.map(p => (
                                 <tr key={p.name}>
                                     <td style={{ fontWeight: 600 }}>
@@ -636,7 +664,9 @@
                                     </td>
                                     <td><span className="badge badge-accent">{p.count}</span></td>
                                     <td style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[...p.directors].join(', ')}</td>
-                                    <td style={{ fontSize: 12 }}>{[...p.years].sort().join(', ')}</td>
+                                    <td style={{ fontSize: 11, color: 'var(--text-tertiary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {Object.keys(p.credits).length ? Object.values(p.credits).filter(Boolean).join(' · ') : <span style={{ opacity: .5 }}>—</span>}
+                                    </td>
                                     <td>
                                         <select value={pc[p.name] || ''} onChange={e => setCategory(p.name, e.target.value)}
                                             style={{ fontSize: 12, padding: '5px 28px 5px 10px', borderColor: pc[p.name] ? 'rgba(212,168,83,0.3)' : 'var(--border)', background: pc[p.name] ? 'var(--accent-dim)' : 'var(--bg-tertiary)', color: pc[p.name] ? 'var(--accent)' : 'var(--text-tertiary)' }}>
@@ -644,11 +674,15 @@
                                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                     </td>
-                                    <td><button className="btn btn-secondary btn-xs" onClick={() => { setEditProject(p.name); setRenameVal(p.name); }}>Rename</button></td>
+                                    <td><div style={{ display: 'flex', gap: 6 }}>
+                                        <button className="btn btn-secondary btn-xs" onClick={() => { setEditProject(p.name); setRenameVal(p.name); }}>Rename</button>
+                                        <button className="btn btn-secondary btn-xs" onClick={() => setCreditsFor(p.name)}>Credits</button>
+                                    </div></td>
                                 </tr>
                             ))}</tbody>
                         </table>
                     </div>
+                    {creditsFor && <CreditsModal project={creditsFor} />}
                 </div>
             );
         };
@@ -822,6 +856,77 @@
         };
 
         // ═══════════════════════════════════════
+        // PIPELINE TAB — add new projects with a few clicks
+        // ═══════════════════════════════════════
+        const PipelineTab = ({ reloadConfig, showToast }) => {
+            const [st, setSt] = useState(null);
+            const [busy, setBusy] = useState(null);
+            const [log, setLog] = useState('');
+            const refresh = () => api.pipelineStatus().then(setSt).catch(() => setSt(null));
+            useEffect(() => { refresh(); }, []);
+            const run = async (cmd, label) => {
+                setBusy(cmd); setLog(`▶ ${label}…\n`);
+                try {
+                    const r = await api.pipeline(cmd);
+                    setLog(l => l + (r.output || '') + (r.ok ? '\n✓ done' : '\n✕ failed'));
+                    showToast(r.ok ? `${label} finished` : `${label} failed — see log`, r.ok ? 'success' : 'error');
+                    await refresh(); await reloadConfig();
+                } catch (e) { setLog(l => l + '\n✕ ' + e.message); showToast('Request failed', 'error'); }
+                setBusy(null);
+            };
+            const Stat = ({ n, label, warn }) => (
+                <div className="card stat-card" style={{ borderColor: warn && n > 0 ? 'rgba(212,168,83,.5)' : undefined }}>
+                    <div className="number" style={{ color: warn && n > 0 ? 'var(--accent)' : n === 0 && warn ? 'var(--success)' : undefined }}>{n}</div>
+                    <div className="label">{label}</div>
+                </div>
+            );
+            const Step = ({ n, title, desc, cmd, label, disabled, children }) => (
+                <div className="card" style={{ marginBottom: 12 }}>
+                    <div className="card-body" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-dim)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{n}</div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>{title}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: children || cmd ? 10 : 0 }}>{desc}</div>
+                            {children}
+                            {cmd && <button className="btn btn-primary btn-sm" disabled={!!busy || disabled} onClick={() => run(cmd, label)}>{busy === cmd ? 'Running…' : label}</button>}
+                        </div>
+                    </div>
+                </div>
+            );
+            if (!st) return <div className="empty-state">Loading pipeline status…</div>;
+            const needsAI = st.missingPrompt + st.missingCraft;
+            return (
+                <div>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+                        Drop a new project's GIFs into <code style={{ color: 'var(--accent)' }}>content/&lt;Director Name&gt;/</code> (flat files, or a sub-folder per project), then run the steps below in order. Nothing here ever overwrites existing prompts, names or edits.
+                    </p>
+                    <div className="grid-4" style={{ marginBottom: 24 }}>
+                        <Stat n={st.newOnDisk} label="New GIFs on disk" warn />
+                        <Stat n={st.missingPixels} label="Need pixel analysis" warn />
+                        <Stat n={st.missingPrompt} label="Need AI description" warn />
+                        <Stat n={st.missingCraft} label="Need craft fields" warn />
+                    </div>
+
+                    <Step n="1" title="Scan for new GIFs" desc={`Adds any GIF in content/ that isn't in the library yet (${st.gifsOnDisk} on disk, ${st.frames} in library). New frames inherit the project's Arabic name and credits automatically; new director folders are added to the directors list.`} cmd="scan" label="Scan content folder" />
+                    <Step n="2" title="Analyse pixels" desc="Reads every new GIF: real colour palette, true aspect ratio, brightness, contrast, warm/cool temperature. Runs on this computer, no AI needed (~3 s per 50 frames)." cmd="pixels" label="Analyse new frames" disabled={st.missingPixels === 0} />
+                    <Step n="3" title="Describe & classify with AI" desc={st.hasApiKey
+                        ? 'An Anthropic API key is set on the server, so this runs automatically: a vision model writes the cinematic description for each new frame, then classifies shot size, lighting, environment, mood and more.'
+                        : 'No ANTHROPIC_API_KEY is set on the server. Either start the server with the key exported (then this button appears), or use "Prepare work files" below and hand the files to Claude — the contact sheets and prompts go in pipeline/, the filled results come back as pipeline/describe_filled.jsonl and pipeline/classify_filled.jsonl.'}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {st.hasApiKey
+                                ? <button className="btn btn-primary btn-sm" disabled={!!busy || needsAI === 0} onClick={() => run('all', 'Describe + classify')}>{busy === 'all' ? 'Running…' : `Run AI on ${needsAI} frame${needsAI === 1 ? '' : 's'}`}</button>
+                                : <button className="btn btn-secondary btn-sm" disabled={!!busy || needsAI === 0} onClick={() => run('prepare', 'Prepare work files')}>{busy === 'prepare' ? 'Preparing…' : 'Prepare work files'}</button>}
+                            <button className="btn btn-secondary btn-sm" disabled={!!busy || (!st.pendingFiles.describe_filled && !st.pendingFiles.classify_filled)} onClick={() => run('merge', 'Merge filled files')}>{busy === 'merge' ? 'Merging…' : 'Merge filled files'}</button>
+                        </div>
+                    </Step>
+                    <Step n="4" title="Publish" desc="When the counters above are all zero, use Publish Changes (top right) to write the site files, then upload content/ to R2 with rclone and git push." />
+
+                    {log && <pre style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, fontSize: 11, lineHeight: 1.5, maxHeight: 300, overflow: 'auto', whiteSpace: 'pre-wrap', marginTop: 8 }}>{log}</pre>}
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════
         // MAIN APP
         // ═══════════════════════════════════════
         const App = () => {
@@ -868,7 +973,9 @@
                 { id: 'projects', icon: '◫', label: 'Projects', count: [...new Set((config.frames||[]).map(f=>f.source).filter(Boolean))].length },
                 { id: 'tags', icon: '◈', label: 'Tags' },
                 { id: 'filters', icon: '◧', label: 'Categories', count: config.filterTags?.projects?.length },
+                { id: 'pipeline', icon: '⚙', label: 'Pipeline' },
             ];
+            const reloadConfig = () => api.getConfig().then(setConfig).catch(() => {});
 
             return (
                 <div>
@@ -911,6 +1018,7 @@
                             {tab === 'projects' && <ProjectsTab config={config} setConfig={updateConfig} showToast={showToast} />}
                             {tab === 'tags' && <TagsTab config={config} setConfig={updateConfig} showToast={showToast} />}
                             {tab === 'filters' && <FiltersTab config={config} setConfig={updateConfig} showToast={showToast} />}
+                            {tab === 'pipeline' && <PipelineTab reloadConfig={reloadConfig} showToast={showToast} />}
                         </div>
                     </div>
 

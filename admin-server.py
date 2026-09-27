@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import unicodedata
+import subprocess
 import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -140,11 +141,23 @@ def save_config(config):
         return False
 
 
+def slim_for_site(frames):
+    """What the website actually loads: full data stays in berwaz-config.json."""
+    out = []
+    for f in frames:
+        g = dict(f)
+        px = f.get('pixels')
+        if px:
+            g['pixels'] = {'temp': px.get('temp'), 'tone': px.get('tone')}
+        out.append(g)
+    return out
+
+
 def generate_frames_data_js(frames):
     """Generate frames-data.js from frames list"""
     try:
         # Compact JSON format - frames on single line with proper JS formatting
-        frames_json = json.dumps(frames, separators=(',', ':'), ensure_ascii=False)
+        frames_json = json.dumps(slim_for_site(frames), separators=(',', ':'), ensure_ascii=False)
         content = f"const FRAMES_DATA = {frames_json};"
 
         with open(FRAMES_DATA_FILE, 'w', encoding='utf-8') as f:
@@ -302,6 +315,34 @@ class BerwazAdminHandler(SimpleHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         path = parsed_path.path
 
+        # API endpoint: GET /api/pipeline/status
+        if path == "/api/pipeline/status":
+            cfg = load_config() or {"frames": []}
+            fr = cfg.get("frames", [])
+            gifs = 0
+            for d, _, files in os.walk("content"):
+                gifs += sum(1 for x in files if x.lower().endswith(".gif"))
+            status = {
+                "frames": len(fr),
+                "gifsOnDisk": gifs,
+                "newOnDisk": max(0, gifs - len(fr)),
+                "missingPrompt": sum(1 for f in fr if not (f.get("prompt") or "").strip()),
+                "missingPixels": sum(1 for f in fr if not f.get("pixels")),
+                "missingCraft": sum(1 for f in fr if not f.get("craft")),
+                "missingArabic": sum(1 for f in fr if not f.get("sourceAr")),
+                "hasApiKey": bool(os.environ.get("ANTHROPIC_API_KEY")),
+                "pendingFiles": {
+                    "describe_filled": os.path.exists(os.path.join("pipeline", "describe_filled.jsonl")),
+                    "classify_filled": os.path.exists(os.path.join("pipeline", "classify_filled.jsonl")),
+                },
+            }
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(status).encode("utf-8"))
+            return
+
         # API endpoint: GET /api/config
         if path == "/api/config":
             self.send_response(200)
@@ -349,6 +390,25 @@ class BerwazAdminHandler(SimpleHTTPRequestHandler):
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(f'{{"error": "Invalid JSON: {str(e)}"}}'.encode('utf-8'))
+
+        # API endpoint: POST /api/pipeline/<scan|pixels|prepare|merge|describe|classify|all>
+        elif path.startswith("/api/pipeline/"):
+            cmd = path.rsplit("/", 1)[-1]
+            allowed = {"scan", "pixels", "prepare", "merge", "describe", "classify", "all", "status"}
+            if cmd not in allowed:
+                self.send_response(400); self.send_header("Content-type", "application/json"); self.end_headers()
+                self.wfile.write(b'{"error": "unknown pipeline command"}'); return
+            try:
+                proc = subprocess.run([sys.executable, "berwaz-pipeline.py", cmd], capture_output=True, text=True, timeout=3600)
+                out = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
+                self.send_response(200 if proc.returncode == 0 else 500)
+                self.send_header("Content-type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": proc.returncode == 0, "output": out[-20000:]}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500); self.send_header("Content-type", "application/json"); self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "output": str(e)}).encode("utf-8"))
 
         # API endpoint: POST /api/publish
         elif path == "/api/publish":

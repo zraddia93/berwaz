@@ -514,7 +514,7 @@
                 const cover = work.frames[Math.min(1, work.frames.length - 1)];
                 return (
                     <a
-                        href={`../index.html?source=${encodeURIComponent(work.title)}`}
+                        href={`../index.html?source=${encodeURIComponent(work.title)}&study=1`}
                         onMouseEnter={() => setHover(true)}
                         onMouseLeave={() => setHover(false)}
                         style={{
@@ -552,7 +552,7 @@
                                 )}
                             </div>
                             <span style={{ fontSize: '12px', color: hover ? 'var(--accent)' : 'var(--text-tertiary)', flexShrink: 0, transition: 'color .2s' }}>
-                                Study →
+                                ▶ Play sequence
                             </span>
                         </div>
                     </a>

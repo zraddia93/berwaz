@@ -255,6 +255,15 @@
         // How many frames to render per page (1920 animated GIFs at once melts mobile Safari)
         const PAGE_SIZE = 60;
 
+        // Project credits shown in the frame modal (edited per project in the admin)
+        const CREDIT_ROLES = [
+            { key: 'dp',         label: 'Cinematographer' },
+            { key: 'colorist',   label: 'Colorist' },
+            { key: 'production', label: 'Production' },
+            { key: 'agency',     label: 'Agency' },
+        ];
+        const creditText = (f) => CREDIT_ROLES.map(r => (f.credits && f.credits[r.key]) || (r.key === 'dp' ? f.dp : '')).filter(Boolean).join(' ');
+
         // Encode each path segment separately: encodeURI() leaves "#" intact, which
         // truncates the URL at the fragment for the filenames that contain one.
         const encodePath = (p) => String(p).split('/').map(encodeURIComponent).join('/');
@@ -536,7 +545,7 @@
         const norm = (s) => (s || '').normalize('NFC').toLowerCase().trim();
 
         // Minimal Header
-        const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, onShowAbout, onShowFeatured, onShowBoards, boardsCount, frameSize, setFrameSize, headerRef }) => {
+        const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, filtersActive = 0, onShowAbout, onShowFeatured, onShowBoards, boardsCount, frameSize, setFrameSize, headerRef }) => {
             const [focused, setFocused] = useState(false);
             const [showMobileMenu, setShowMobileMenu] = useState(false);
 
@@ -783,7 +792,7 @@
                                 }}
                             >
                                 <Icons.Filter />
-                                Filters
+                                Filters{filtersActive > 0 && <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", marginLeft: '2px' }}>{filtersActive}</span>}
                             </button>
 
                             {/* Size Slider */}
@@ -909,7 +918,7 @@
                                 }}
                             >
                                 <Icons.Filter />
-                                Filters
+                                Filters{filtersActive > 0 && <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", marginLeft: '2px' }}>{filtersActive}</span>}
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
                                 <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Grid Size:</span>
@@ -921,73 +930,176 @@
             );
         };
 
-        // Filter Bar (sits directly under the header; its real height is measured by App)
-        const FilterBar = ({ activeTags, toggleTag, clearFilters, barRef, top }) => (
-            <div ref={barRef} style={{
-                position: 'fixed',
-                top: `${top}px`,
-                left: 0,
-                right: 0,
-                zIndex: 99,
-                background: 'var(--bg-primary)',
-                borderBottom: '1px solid var(--border)',
-                padding: '16px 24px 12px',
-                animation: 'slideUp 0.3s ease-out'
-            }}>
-                <div style={{ maxWidth: '1800px', margin: '0 auto' }}>
-                    {Object.entries(FILTER_TAGS).map(([category, tags]) => (
-                        <div key={category} style={{ marginBottom: '16px' }}>
-                            <div style={{
-                                fontSize: '10px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.15em',
-                                color: 'var(--text-tertiary)',
-                                marginBottom: '10px'
-                            }}>
-                                {category}
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                {tags.map(tag => (
-                                    <button
-                                        key={tag}
-                                        onClick={() => toggleTag(tag)}
-                                        style={{
-                                            padding: '8px 14px',
-                                            background: activeTags.includes(tag) ? 'var(--accent)' : 'transparent',
-                                            color: activeTags.includes(tag) ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                                            border: `1px solid ${activeTags.includes(tag) ? 'var(--accent)' : 'var(--border)'}`,
-                                            borderRadius: '100px',
-                                            cursor: 'pointer',
-                                            fontSize: '12px',
-                                            fontWeight: 500,
-                                            transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        {tag}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                    {activeTags.length > 0 && (
-                        <button
-                            onClick={clearFilters}
-                            style={{
-                                padding: '8px 14px',
-                                background: 'transparent',
-                                color: 'var(--text-tertiary)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                marginTop: '8px'
-                            }}
-                        >
-                            Clear all filters
-                        </button>
-                    )}
-                </div>
-            </div>
+        // ═══════════════════════════════════════════════════════════════
+        // CRAFT TAXONOMY — display config only. The set of values shown is
+        // derived from the data at runtime, so new projects need no site change.
+        // ═══════════════════════════════════════════════════════════════
+        const CRAFT_GROUPS = [
+            { key: 'shotSize',    label: 'Shot size',   order: ['extreme-close-up', 'close-up', 'medium', 'wide', 'extreme-wide'] },
+            { key: 'lighting',    label: 'Lighting',    order: ['daylight', 'golden-hour', 'blue-hour', 'night', 'low-key', 'high-key', 'silhouette', 'practical', 'studio'] },
+            { key: 'timeOfDay',   label: 'Time of day', order: ['day', 'golden-hour', 'dusk-dawn', 'night'], hide: ['n-a'] },
+            { key: 'environment', label: 'Environment', order: ['desert', 'heritage', 'urban', 'coastal', 'nature', 'domestic', 'office', 'studio', 'sports', 'vehicle', 'abstract'] },
+            { key: 'setting',     label: 'Setting',     order: ['interior', 'exterior'], hide: ['n-a'] },
+            { key: 'angle',       label: 'Angle',       order: ['eye-level', 'low', 'high', 'top-down', 'dutch'] },
+            { key: 'mood',        label: 'Mood',        order: ['dramatic', 'epic', 'tense', 'mysterious', 'warm', 'intimate', 'serene', 'playful', 'energetic', 'nostalgic', 'melancholic'] },
+            { key: 'subject',     label: 'Subject',     order: ['people', 'crowd', 'product', 'landscape', 'architecture', 'vehicle', 'animal', 'graphic'] },
+            { key: 'movement',    label: 'Camera',      order: ['static', 'handheld', 'tracking', 'aerial'], hide: ['unknown'] },
+            { key: 'temp',        label: 'Palette',     order: ['warm', 'neutral', 'cool'], from: 'pixels' },
+            { key: 'tone',        label: 'Tone',        order: ['dark', 'mid', 'bright'], from: 'pixels' },
+            { key: 'aspect',      label: 'Aspect',      order: ['1:1', '4:3', '1.43:1', '16:9', '2:1', '2.20:1', '2.39:1', '2.76:1', '3.2:1', '9:16'], from: 'frame' },
+        ];
+        const craftLabel = (v) => String(v).replace(/-/g, ' ').replace(/\bn a\b/, 'n/a').replace(/^\w/, c => c.toUpperCase());
+        // Read a group's value(s) off a frame regardless of where it lives
+        const craftValues = (frame, g) => {
+            let v;
+            if (g.from === 'pixels') v = frame.pixels && frame.pixels[g.key];
+            else if (g.from === 'frame') v = frame[g.key];
+            else v = frame.craft && frame.craft[g.key];
+            if (v == null || v === '') return [];
+            return Array.isArray(v) ? v : [v];
+        };
+        // Which values actually exist (with counts), per group
+        const buildCraftOptions = (frames) => {
+            const out = {};
+            for (const g of CRAFT_GROUPS) {
+                const counts = {};
+                for (const f of frames) for (const v of craftValues(f, g)) counts[v] = (counts[v] || 0) + 1;
+                const hide = new Set(g.hide || []);
+                const vals = Object.keys(counts).filter(v => !hide.has(v));
+                vals.sort((a, b) => {
+                    const ia = g.order.indexOf(a), ib = g.order.indexOf(b);
+                    if (ia !== -1 && ib !== -1) return ia - ib;
+                    if (ia !== -1) return -1; if (ib !== -1) return 1;
+                    return a.localeCompare(b);
+                });
+                out[g.key] = vals.map(v => ({ value: v, count: counts[v] }));
+            }
+            return out;
+        };
+        const frameMatchesCraft = (frame, craft) => {
+            for (const g of CRAFT_GROUPS) {
+                const sel = craft[g.key];
+                if (!sel || sel.length === 0) continue;
+                const vals = craftValues(frame, g);
+                if (!vals.some(v => sel.includes(v))) return false;
+            }
+            return true;
+        };
+        const craftCount = (craft) => Object.values(craft).reduce((n, a) => n + (a ? a.length : 0), 0);
+
+        // Similarity: how alike two frames are, by craft fields + palette. Higher = more alike.
+        const hexToRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+        const paletteDistance = (a = [], b = []) => {
+            const A = a.map(hexToRgb).filter(Boolean), B = b.map(hexToRgb).filter(Boolean);
+            if (!A.length || !B.length) return 1;
+            let total = 0;
+            for (const c of A) {
+                let best = 1e9;
+                for (const d of B) { const dd = (c[0]-d[0])**2 + (c[1]-d[1])**2 + (c[2]-d[2])**2; if (dd < best) best = dd; }
+                total += Math.sqrt(best);
+            }
+            return Math.min(1, total / A.length / 441); // 0 identical … 1 opposite
+        };
+        const similarity = (a, b) => {
+            if (!a.craft || !b.craft) return 0;
+            let s = 0;
+            if (a.craft.lighting === b.craft.lighting) s += 3;
+            if (a.craft.environment === b.craft.environment) s += 3;
+            if (a.craft.timeOfDay === b.craft.timeOfDay) s += 2;
+            if (a.craft.shotSize === b.craft.shotSize) s += 1.5;
+            if (a.craft.setting === b.craft.setting) s += 1;
+            if (a.craft.subject === b.craft.subject) s += 1;
+            s += 1.5 * a.craft.mood.filter(m => b.craft.mood.includes(m)).length;
+            if (a.pixels && b.pixels) {
+                if (a.pixels.temp === b.pixels.temp) s += 1;
+                if (a.pixels.tone === b.pixels.tone) s += 1;
+                s += 3 * (1 - paletteDistance(a.color, b.color));
+            }
+            if (a.source === b.source) s -= 2;        // prefer other projects: that's the point of "similar"
+            if (a.director === b.director) s -= 0.5;
+            return s;
+        };
+        const mostSimilar = (frame, frames, n = 6) => {
+            const scored = [];
+            for (const f of frames) { if (f.id === frame.id) continue; const sc = similarity(frame, f); if (sc > 4) scored.push([sc, f]); }
+            scored.sort((x, y) => y[0] - x[0]);
+            // at most 2 per project so one campaign can't fill the row
+            const out = [], per = {};
+            for (const [, f] of scored) { per[f.source] = (per[f.source] || 0) + 1; if (per[f.source] > 2) continue; out.push(f); if (out.length >= n) break; }
+            return out;
+        };
+
+        // Craft chip (used in the filter bar and in the modal)
+        const Chip = ({ active, onClick, children, small, title }) => (
+            <button onClick={onClick} title={title} style={{
+                padding: small ? '5px 10px' : '7px 12px',
+                background: active ? 'var(--accent)' : 'transparent',
+                color: active ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: '100px', cursor: 'pointer', fontSize: small ? '11px' : '12px', fontWeight: 500,
+                transition: 'all .15s', whiteSpace: 'nowrap', minHeight: 0, lineHeight: 1.2
+            }}
+                onMouseEnter={(e) => { if (!active) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+                onMouseLeave={(e) => { if (!active) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+            >{children}</button>
         );
+
+        // Filter Bar (sits directly under the header; its real height is measured by App)
+        const FilterBar = ({ activeTags, toggleTag, craft, toggleCraft, craftOptions, clearFilters, barRef, top, isMobile }) => {
+            const [open, setOpen] = useState(() => new Set(['projects', 'lighting', 'environment', 'shotSize']));
+            const total = activeTags.length + craftCount(craft);
+            const groups = [
+                { key: 'projects', label: 'Projects', options: (FILTER_TAGS.projects || []).map(v => ({ value: v })), active: activeTags, onToggle: toggleTag, labelOf: v => v },
+                ...CRAFT_GROUPS.filter(g => (craftOptions[g.key] || []).length > 0).map(g => ({
+                    key: g.key, label: g.label, options: craftOptions[g.key], active: craft[g.key] || [], onToggle: (v) => toggleCraft(g.key, v), labelOf: craftLabel
+                }))
+            ];
+            const toggleOpen = (k) => setOpen(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+            return (
+                <div ref={barRef} style={{
+                    position: 'fixed', top: `${top}px`, left: 0, right: 0, zIndex: 99,
+                    background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)',
+                    padding: isMobile ? '10px 16px 8px' : '12px 24px 8px',
+                    maxHeight: isMobile ? '55vh' : '46vh', overflowY: 'auto', overscrollBehavior: 'contain',
+                    animation: 'slideUp 0.3s ease-out'
+                }}>
+                    <div style={{ maxWidth: '1800px', margin: '0 auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
+                                Filter by craft {total > 0 && <span style={{ color: 'var(--accent)' }}>· {total} active</span>}
+                            </span>
+                            <span style={{ flex: 1 }} />
+                            {total > 0 && (
+                                <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, padding: 0 }}>Clear all</button>
+                            )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: isMobile ? '6px 0' : '6px 28px' }}>
+                            {groups.map(g => {
+                                const isOpen = open.has(g.key) || g.active.length > 0;
+                                return (
+                                    <div key={g.key} style={{ padding: '4px 0', borderTop: '1px solid var(--border)' }}>
+                                        <button onClick={() => toggleOpen(g.key)} aria-expanded={isOpen} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', padding: '6px 0', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '11px', letterSpacing: '.12em', textTransform: 'uppercase', minHeight: 0 }}>
+                                            <span style={{ display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s', fontSize: '9px' }}>▶</span>
+                                            {g.label}
+                                            {g.active.length > 0 && <span style={{ color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0 }}>{g.active.length}</span>}
+                                        </button>
+                                        {isOpen && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px 0 8px' }}>
+                                                {g.options.map(o => (
+                                                    <Chip key={o.value} small active={g.active.includes(o.value)} onClick={() => g.onToggle(o.value)} title={o.count ? `${o.count} frames` : undefined}>
+                                                        {g.labelOf(o.value)}{o.count ? <span style={{ opacity: .55, marginLeft: '5px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px' }}>{o.count}</span> : null}
+                                                    </Chip>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         // Popover to choose which board a frame goes to (or create one)
         const BoardPicker = ({ frame, boardsApi, onDone, anchorRect }) => {
@@ -1187,7 +1299,7 @@
         };
 
         // Frame Detail Modal
-        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, isSaved, onSave }) => {
+        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, onFilterByCraft, similar, onOpenFrame, isSaved, onSave, onStudy }) => {
             const [promptCopied, setPromptCopied] = useState(false);
             const [promptExpanded, setPromptExpanded] = useState(false);
             const [imgLoaded, setImgLoaded] = useState(false);
@@ -1419,20 +1531,32 @@
                                         {frame.director}
                                     </div>
                                 </div>
-                                {frame.dp && (
-                                    <div>
-                                        <div style={{
-                                            fontSize: '10px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.15em',
-                                            color: 'var(--text-tertiary)',
-                                            marginBottom: '6px'
-                                        }}>
-                                            Cinematographer
+                                {CREDIT_ROLES.map(r => {
+                                    const v = (frame.credits && frame.credits[r.key]) || (r.key === 'dp' ? frame.dp : '');
+                                    if (!v) return null;
+                                    return (
+                                        <div key={r.key}>
+                                            <div style={{
+                                                fontSize: '10px',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.15em',
+                                                color: 'var(--text-tertiary)',
+                                                marginBottom: '6px'
+                                            }}>
+                                                {r.label}
+                                            </div>
+                                            <div
+                                                onClick={() => onFilterByTag && onFilterByTag(v)}
+                                                title={`Search for ${v}`}
+                                                style={{ fontSize: '14px', cursor: 'pointer', borderBottom: '1px dashed var(--text-tertiary)', display: 'inline-block', transition: 'color .2s' }}
+                                                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.color = ''}
+                                            >
+                                                {v}
+                                            </div>
                                         </div>
-                                        <div style={{ fontSize: '14px' }}>{frame.dp}</div>
-                                    </div>
-                                )}
+                                    );
+                                })}
                                 <div>
                                     <div style={{
                                         fontSize: '10px',
@@ -1445,67 +1569,27 @@
                                     </div>
                                     <div style={{ fontSize: '14px' }}>{frame.year}</div>
                                 </div>
-                                <div>
-                                    <div style={{
-                                        fontSize: '10px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.15em',
-                                        color: 'var(--text-tertiary)',
-                                        marginBottom: '6px'
-                                    }}>
-                                        Mood
-                                    </div>
-                                    <div style={{ fontSize: '14px' }}>{frame.mood}</div>
-                                </div>
-                                <div>
-                                    <div style={{
-                                        fontSize: '10px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.15em',
-                                        color: 'var(--text-tertiary)',
-                                        marginBottom: '6px'
-                                    }}>
-                                        Lighting
-                                    </div>
-                                    <div style={{ fontSize: '14px' }}>{frame.lighting}</div>
-                                </div>
                             </div>
 
-                            {/* Color Palette */}
-                            <div style={{ marginBottom: '24px' }}>
-                                <div style={{
-                                    fontSize: '10px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.15em',
-                                    color: 'var(--text-tertiary)',
-                                    marginBottom: '12px'
-                                }}>
-                                    Color Palette
+                            {/* Craft — every chip filters the library by that value */}
+                            {frame.craft && (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text-tertiary)', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Craft</span>
+                                        <span style={{ textTransform: 'none', letterSpacing: 0, opacity: .7 }}>click to find more</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {CRAFT_GROUPS.filter(g => g.key !== 'aspect').map(g => craftValues(frame, g).filter(v => !(g.hide || []).includes(v)).map(v => (
+                                            <Chip key={g.key + v} small onClick={() => onFilterByCraft && onFilterByCraft(g.key, v)} title={`${g.label}: ${craftLabel(v)}`}>
+                                                <span style={{ opacity: .5, marginRight: '5px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.08em' }}>{g.label === 'Palette' ? 'Temp' : g.label}</span>{craftLabel(v)}
+                                            </Chip>
+                                        )))}
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    {(frame.color || []).map((c, i) => (
-                                        <div key={i} style={{ textAlign: 'center' }}>
-                                            <div style={{
-                                                width: '48px',
-                                                height: '48px',
-                                                borderRadius: '8px',
-                                                background: c,
-                                                marginBottom: '6px'
-                                            }} />
-                                            <div style={{
-                                                fontSize: '10px',
-                                                fontFamily: "'JetBrains Mono', monospace",
-                                                color: 'var(--text-tertiary)'
-                                            }}>
-                                                {c}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Tags — only shown when the frame actually has any */}
-                            {(frame.tags || []).length > 0 && (
+                            {/* Color Palette (measured from the frame) */}
+                            {(frame.color || []).length > 0 && (
                                 <div style={{ marginBottom: '24px' }}>
                                     <div style={{
                                         fontSize: '10px',
@@ -1514,33 +1598,47 @@
                                         color: 'var(--text-tertiary)',
                                         marginBottom: '12px'
                                     }}>
-                                        Tags
+                                        Color Palette
                                     </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {frame.tags.map(tag => (
-                                            <button
-                                                key={tag}
-                                                onClick={() => onFilterByTag(tag)}
-                                                style={{
-                                                    padding: '6px 14px',
-                                                    background: 'var(--bg-tertiary)',
-                                                    borderRadius: '100px',
-                                                    fontSize: '12px',
-                                                    border: 'none',
-                                                    color: 'var(--text-primary)',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.currentTarget.style.background = 'var(--accent)';
-                                                    e.currentTarget.style.color = '#000';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.background = 'var(--bg-tertiary)';
-                                                    e.currentTarget.style.color = 'var(--text-primary)';
-                                                }}
-                                            >
-                                                {tag}
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        {frame.color.map((c, i) => (
+                                            <div key={i} style={{ textAlign: 'center' }} title={`Click to copy ${c}`}
+                                                onClick={() => { try { navigator.clipboard.writeText(c); } catch {} }}>
+                                                <div style={{
+                                                    width: '44px',
+                                                    height: '44px',
+                                                    borderRadius: '8px',
+                                                    background: c,
+                                                    marginBottom: '6px',
+                                                    border: '1px solid rgba(255,255,255,.08)',
+                                                    cursor: 'copy'
+                                                }} />
+                                                <div style={{
+                                                    fontSize: '10px',
+                                                    fontFamily: "'JetBrains Mono', monospace",
+                                                    color: 'var(--text-tertiary)'
+                                                }}>
+                                                    {c}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* More like this — by lighting, environment, mood and palette */}
+                            {similar && similar.length > 0 && (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text-tertiary)', marginBottom: '10px' }}>
+                                        More like this
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                                        {similar.map(f => (
+                                            <button key={f.id} onClick={() => onOpenFrame && onOpenFrame(f)} title={`${f.source} — ${f.director}`}
+                                                style={{ position: 'relative', aspectRatio: '16/9', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-tertiary)', padding: 0, cursor: 'pointer', minHeight: 0 }}
+                                                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}>
+                                                <img src={f.image} alt={f.source} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                             </button>
                                         ))}
                                     </div>
@@ -1649,6 +1747,19 @@
                                 gap: '12px',
                                 flexShrink: 0
                             }}>
+                                {onStudy && (
+                                    <button
+                                        onClick={onStudy}
+                                        title="Step through this project shot by shot"
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                            padding: '14px 16px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                                            border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, flexShrink: 0
+                                        }}
+                                    >
+                                        ▶ Sequence
+                                    </button>
+                                )}
                                 {onSave && (
                                     <button
                                         onClick={(e) => onSave(frame, e.currentTarget.getBoundingClientRect())}
@@ -2276,6 +2387,148 @@
             );
         };
 
+        // ═══════════════════════════════════════════════════════════════
+        // STUDY MODE — full-screen, keyboard-driven, one frame at a time.
+        // Works over any list of frames: a project's shot sequence, or the
+        // current filtered result set ("study all silhouettes").
+        // ═══════════════════════════════════════════════════════════════
+        const shotIndex = (file) => {
+            const m = /_(\d+)s(\d+)\.gif$/i.exec(file || '') || /_scene(\d+)\.gif$/i.exec(file || '');
+            if (!m) return 0;
+            return m.length === 3 ? parseInt(m[1], 10) * 100 + parseInt(m[2], 10) : parseInt(m[1], 10);
+        };
+        // Shot order within a project = the shot number baked into the filename
+        const sequenceOf = (frames, source) =>
+            frames.filter(f => f.source === source).slice().sort((a, b) => shotIndex(a.file) - shotIndex(b.file) || Number(a.id) - Number(b.id));
+
+        const StudyMode = ({ frames, startIndex = 0, title, onClose, onFilterByCraft, isSaved, onSave, isMobile, escEnabled = true }) => {
+            const [i, setI] = useState(Math.min(Math.max(0, startIndex), Math.max(0, frames.length - 1)));
+            const [info, setInfo] = useState(!isMobile);
+            const [loaded, setLoaded] = useState(false);
+            const [promptOpen, setPromptOpen] = useState(false);
+            const touch = useRef(null);
+            const live = useRef({});
+            const f = frames[i];
+            live.current = { i, n: frames.length, onClose, info, f, onSave, isSaved, escEnabled };
+
+            const go = useCallback((d) => setI(cur => Math.min(Math.max(0, cur + d), frames.length - 1)), [frames.length]);
+            useEffect(() => { setLoaded(false); setPromptOpen(false); }, [i]);
+
+            // Keyboard: ← → space, i (info), b (save), Esc; Home/End
+            useEffect(() => {
+                const onKey = (e) => {
+                    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+                    if (!live.current.escEnabled) return; // a picker/toast owns the keyboard right now
+                    const k = e.key;
+                    if (k === 'ArrowRight' || k === ' ' || k === 'PageDown' || k === 'j') { e.preventDefault(); go(1); }
+                    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'k') { e.preventDefault(); go(-1); }
+                    else if (k === 'Home') { e.preventDefault(); setI(0); }
+                    else if (k === 'End') { e.preventDefault(); setI(frames.length - 1); }
+                    else if (k === 'i' || k === 'I') { setInfo(v => !v); }
+                    else if ((k === 'b' || k === 'B') && live.current.onSave) { live.current.onSave(live.current.f, null); }
+                    else if (k === 'Escape') { e.stopPropagation(); live.current.onClose(); }
+                };
+                document.addEventListener('keydown', onKey, true);
+                const prev = document.body.style.overflow; document.body.style.overflow = 'hidden';
+                return () => { document.removeEventListener('keydown', onKey, true); document.body.style.overflow = prev; };
+            }, [go, frames.length]);
+
+            // Preload neighbours so stepping feels instant
+            useEffect(() => {
+                [i + 1, i + 2, i - 1].forEach(j => { const g = frames[j]; if (g) { const im = new Image(); im.src = g.image; } });
+            }, [i, frames]);
+
+            if (!f) return null;
+            const saved = isSaved ? isSaved(f.id) : false;
+            const onTouchStart = (e) => { touch.current = e.touches[0].clientX; };
+            const onTouchEnd = (e) => { if (touch.current == null) return; const dx = e.changedTouches[0].clientX - touch.current; touch.current = null; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); };
+            const strip = frames.slice(Math.max(0, i - 6), Math.min(frames.length, i + 7));
+            const stripStart = Math.max(0, i - 6);
+
+            return (
+                <div role="dialog" aria-modal="true" aria-label="Study mode" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+                    style={{ position: 'fixed', inset: 0, zIndex: 260, background: '#000', display: 'flex', flexDirection: 'column', userSelect: 'none', animation: 'fadeIn .2s ease-out' }}>
+                    {/* Top bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: isMobile ? '10px 14px' : '12px 20px', borderBottom: '1px solid #1a1a1a', flexShrink: 0 }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: '10px', letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--accent)' }}>Study mode{title ? ` · ${title}` : ''}</div>
+                            <div style={{ fontSize: isMobile ? '13px' : '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>· {f.director}</span></div>
+                        </div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: 'var(--text-secondary)', flexShrink: 0 }}>{i + 1} / {frames.length}</div>
+                        {!isMobile && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', flexShrink: 0 }}>← → navigate · <b style={{ color: 'var(--text-secondary)' }}>i</b> info · <b style={{ color: 'var(--text-secondary)' }}>b</b> save · esc</div>}
+                        {onSave && (
+                            <button onClick={(e) => onSave(f, e.currentTarget.getBoundingClientRect())} aria-pressed={saved} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: saved ? 'var(--accent)' : 'rgba(255,255,255,.06)', color: saved ? '#000' : '#fff', border: '1px solid ' + (saved ? 'var(--accent)' : '#2a2a2a'), borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, minHeight: 0 }}>
+                                <Icons.Bookmark filled={saved} size={14} />{!isMobile && (saved ? 'Saved' : 'Save')}
+                            </button>
+                        )}
+                        <button onClick={() => setInfo(v => !v)} aria-pressed={info} title="Toggle info (i)" style={{ padding: '8px 12px', background: info ? 'rgba(255,217,0,.12)' : 'rgba(255,255,255,.06)', color: info ? 'var(--accent)' : '#fff', border: '1px solid ' + (info ? 'rgba(255,217,0,.4)' : '#2a2a2a'), borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, minHeight: 0 }}>Info</button>
+                        <button onClick={onClose} aria-label="Exit study mode" style={{ width: '36px', height: '36px', minHeight: 0, minWidth: 0, padding: 0, background: 'rgba(255,255,255,.06)', color: '#fff', border: '1px solid #2a2a2a', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.X /></button>
+                    </div>
+
+                    {/* Stage */}
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative' }}>
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: isMobile ? '8px' : '16px' }}>
+                            {!loaded && <div className="shimmer" style={{ position: 'absolute', inset: isMobile ? '8px' : '16px', borderRadius: '6px' }} />}
+                            <img key={f.id} src={f.image} alt={f.source} onLoad={() => setLoaded(true)} onError={() => setLoaded(true)} draggable={false}
+                                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity .25s', borderRadius: '4px' }} />
+                            {/* click zones */}
+                            {!isMobile && <>
+                                <button aria-label="Previous" onClick={() => go(-1)} disabled={i === 0} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '18%', background: 'transparent', border: 'none', cursor: i === 0 ? 'default' : 'w-resize', opacity: 0 }} />
+                                <button aria-label="Next" onClick={() => go(1)} disabled={i >= frames.length - 1} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '18%', background: 'transparent', border: 'none', cursor: i >= frames.length - 1 ? 'default' : 'e-resize', opacity: 0 }} />
+                            </>}
+                            <div style={{ position: 'absolute', top: isMobile ? '14px' : '24px', left: isMobile ? '14px' : '24px', padding: '4px 8px', background: 'rgba(0,0,0,.6)', borderRadius: '4px', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#ccc' }}>{f.aspect}</div>
+                        </div>
+
+                        {/* Info panel */}
+                        {info && (
+                            <div style={{ width: isMobile ? '100%' : '340px', flexShrink: 0, borderLeft: isMobile ? 'none' : '1px solid #1a1a1a', borderTop: isMobile ? '1px solid #1a1a1a' : 'none', padding: '16px', overflowY: 'auto', background: '#0a0a0a', position: isMobile ? 'absolute' : 'relative', bottom: 0, left: 0, maxHeight: isMobile ? '55%' : 'none' }}>
+                                {f.sourceAr && <div dir="rtl" style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: '20px', color: 'var(--accent)', textAlign: 'left', marginBottom: '10px' }}>{f.sourceAr}</div>}
+                                {f.craft && (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <div style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Craft</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                            {CRAFT_GROUPS.filter(g => g.key !== 'aspect').map(g => craftValues(f, g).filter(v => !(g.hide || []).includes(v)).map(v => (
+                                                <Chip key={g.key + v} small onClick={() => onFilterByCraft && onFilterByCraft(g.key, v)} title={`${g.label}: ${craftLabel(v)}`}>
+                                                    <span style={{ opacity: .5, marginRight: '4px', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '.08em' }}>{g.label === 'Palette' ? 'Temp' : g.label}</span>{craftLabel(v)}
+                                                </Chip>
+                                            )))}
+                                        </div>
+                                    </div>
+                                )}
+                                {(f.color || []).length > 0 && (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <div style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Palette</div>
+                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                            {f.color.map((c, k) => <div key={k} title={c} style={{ flex: 1, height: '34px', borderRadius: '6px', background: c, border: '1px solid rgba(255,255,255,.08)' }} />)}
+                                        </div>
+                                    </div>
+                                )}
+                                {f.prompt && (
+                                    <div>
+                                        <div style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Description</div>
+                                        <div className={promptOpen ? '' : 'prompt-clamp'} style={{ fontSize: '12.5px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>{f.prompt}</div>
+                                        <button onClick={() => setPromptOpen(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0, marginTop: '6px', minHeight: 0 }}>{promptOpen ? 'Show less ↑' : 'Show more ↓'}</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Filmstrip */}
+                    <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', borderTop: '1px solid #1a1a1a', overflowX: 'auto', flexShrink: 0, justifyContent: frames.length <= 13 ? 'center' : 'flex-start' }}>
+                        {strip.map((g, k) => {
+                            const idx = stripStart + k; const cur = idx === i;
+                            return (
+                                <button key={g.id} onClick={() => setI(idx)} title={`${idx + 1}`} style={{ width: isMobile ? '52px' : '72px', aspectRatio: '16/9', flexShrink: 0, padding: 0, border: `2px solid ${cur ? 'var(--accent)' : 'transparent'}`, borderRadius: '4px', overflow: 'hidden', background: '#111', cursor: 'pointer', opacity: cur ? 1 : .55, minHeight: 0, transition: 'opacity .15s' }}>
+                                    <img src={g.image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
         // Main App
         const App = () => {
             // Transform embedded data to include full image path and shuffle on load
@@ -2289,6 +2542,14 @@
             });
             const [searchQuery, setSearchQuery] = useState('');
             const [activeTags, setActiveTags] = useState([]);
+            // Craft filters: { lighting: ['low-key', ...], environment: [...], ... } — readable from the URL
+            const [craft, setCraft] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                const out = {};
+                for (const g of CRAFT_GROUPS) { const v = params.get(g.key); if (v) out[g.key] = v.split(',').filter(Boolean); }
+                return out;
+            });
+            const craftOptions = useMemo(() => buildCraftOptions(frames), [frames]);
             const [showFilters, setShowFilters] = useState(false);
             const [selectedFrame, setSelectedFrame] = useState(null);
 
@@ -2340,9 +2601,40 @@
                 resetView();
             }, [resetView]);
 
+            const toggleCraft = useCallback((key, value) => {
+                setCraft(prev => {
+                    const cur = prev[key] || [];
+                    const next = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
+                    const out = { ...prev, [key]: next };
+                    if (!next.length) delete out[key];
+                    return out;
+                });
+                resetView();
+            }, [resetView]);
+
+            // Apply one craft value (from a chip in the modal): replaces that group, keeps others
+            const filterByCraft = useCallback((key, value) => {
+                setCraft(prev => ({ ...prev, [key]: [value] }));
+                setShowFilters(true);
+                resetView();
+            }, [resetView]);
+
+            // Keep craft filters in the URL so a study view can be shared
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                for (const g of CRAFT_GROUPS) {
+                    const v = craft[g.key];
+                    if (v && v.length) params.set(g.key, v.join(',')); else params.delete(g.key);
+                }
+                const q = params.toString();
+                const url = window.location.pathname + (q ? '?' + q : '') + window.location.hash;
+                if (url !== window.location.pathname + window.location.search + window.location.hash) window.history.replaceState(null, '', url);
+            }, [craft]);
+
             // Clearing also drops the ?director= param, so a refresh doesn't re-apply it
             const clearFilters = useCallback(() => {
                 setActiveTags([]);
+                setCraft({});
                 setFilterDirector(null);
                 setFilterSource(null);
                 setSearchQuery('');
@@ -2355,6 +2647,7 @@
             // Close every overlay so the filtered grid is actually visible
             const closeAllOverlays = useCallback(() => {
                 setSelectedFrame(null);
+                setStudy(null);
                 setShowBoards(false);
                 setSharedBoard(null);
                 setPicker(null);
@@ -2384,6 +2677,17 @@
             const handleCloseFrame = useCallback(() => setSelectedFrame(null), []);
             const handleCloseAbout = useCallback(() => setShowAbout(false), []);
             const handleCloseFeatured = useCallback(() => setShowFeatured(false), []);
+
+            // ── Study mode ── { frames, index, title }
+            const [study, setStudy] = useState(null);
+            const [autoStudy] = useState(() => new URLSearchParams(window.location.search).get('study') === '1');
+            const closeStudy = useCallback(() => {
+                setStudy(null);
+                if (window.location.search.includes('study=1')) {
+                    const p = new URLSearchParams(window.location.search); p.delete('study');
+                    const q = p.toString(); window.history.replaceState(null, '', window.location.pathname + (q ? '?' + q : ''));
+                }
+            }, []);
 
             // ── Boards ──
             const boardsApi = useBoards(useMemo(() => new Set(frames.map(f => f.id)), [frames]));
@@ -2451,8 +2755,13 @@
                         norm(f.mood).includes(q) ||
                         norm(f.lighting).includes(q) ||
                         norm(f.prompt).includes(q) ||
+                        norm(creditText(f)).includes(q) ||
                         (f.tags || []).some(t => norm(t).includes(q))
                     );
+                }
+
+                if (craftCount(craft) > 0) {
+                    result = result.filter(f => frameMatchesCraft(f, craft));
                 }
 
                 if (activeTags.length > 0) {
@@ -2470,11 +2779,22 @@
                     );
                 }
 
+                // A single project is a film: show it in shot order, not shuffled
+                if (filterSource) result = result.slice().sort((a, b) => shotIndex(a.file) - shotIndex(b.file) || Number(a.id) - Number(b.id));
+
                 return result;
-            }, [frames, searchQuery, activeTags, filterDirector, filterSource]);
+            }, [frames, searchQuery, activeTags, craft, filterDirector, filterSource]);
+
+            // Deep link: ?source=X&study=1 opens the sequence straight into study mode
+            useEffect(() => {
+                if (autoStudy && filterSource && filteredFrames.length && !study) {
+                    setStudy({ frames: filteredFrames, index: 0, title: 'Sequence' });
+                }
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [autoStudy, filterSource, filteredFrames.length]);
 
             // Reset paging whenever the result set changes size
-            useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, activeTags, filterDirector, filterSource]);
+            useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, activeTags, craft, filterDirector, filterSource]);
 
             const visibleFrames = useMemo(
                 () => filteredFrames.slice(0, visibleCount),
@@ -2503,6 +2823,7 @@
                         setSearchQuery={setSearchQuery}
                         showFilters={showFilters}
                         setShowFilters={setShowFilters}
+                        filtersActive={activeTags.length + craftCount(craft)}
                         onShowAbout={() => setShowAbout(true)}
                         onShowFeatured={() => setShowFeatured(true)}
                         onShowBoards={() => openBoards()}
@@ -2515,9 +2836,13 @@
                         <FilterBar
                             activeTags={activeTags}
                             toggleTag={toggleTag}
+                            craft={craft}
+                            toggleCraft={toggleCraft}
+                            craftOptions={craftOptions}
                             clearFilters={clearFilters}
                             barRef={filterBarRef}
                             top={headerH}
+                            isMobile={isMobile}
                         />
                     )}
 
@@ -2581,13 +2906,27 @@
                             justifyContent: 'space-between',
                             alignItems: 'center'
                         }}>
-                            <div style={{
-                                fontSize: '13px',
-                                color: 'var(--text-tertiary)'
-                            }}>
-                                {hasMore
-                                    ? `Showing ${visibleFrames.length.toLocaleString()} of ${filteredFrames.length.toLocaleString()} frames`
-                                    : `${filteredFrames.length.toLocaleString()} frame${filteredFrames.length === 1 ? '' : 's'}`}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                                <div style={{
+                                    fontSize: '13px',
+                                    color: 'var(--text-tertiary)'
+                                }}>
+                                    {hasMore
+                                        ? `Showing ${visibleFrames.length.toLocaleString()} of ${filteredFrames.length.toLocaleString()} frames`
+                                        : `${filteredFrames.length.toLocaleString()} frame${filteredFrames.length === 1 ? '' : 's'}`}
+                                    {filterSource && <span style={{ color: 'var(--accent)' }}> · in shot order</span>}
+                                </div>
+                                {filteredFrames.length > 1 && (
+                                    <button
+                                        onClick={() => setStudy({ frames: filteredFrames, index: 0, title: filterSource ? 'Sequence' : (activeTags.length + craftCount(craft) + (filterDirector ? 1 : 0) > 0 ? 'Filtered set' : 'Library') })}
+                                        title="Step through these frames one at a time (keyboard: ← → i b)"
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '100px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', minHeight: 0 }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                                    >
+                                        ▶ {filterSource ? 'Play sequence' : 'Study these'}
+                                    </button>
+                                )}
                             </div>
                             <div style={{
                                 fontSize: '11px',
@@ -2672,6 +3011,16 @@
                             onFilterByTag={handleFilterByTag}
                             isSaved={savedSet.has(selectedFrame.id)}
                             onSave={handleSave}
+                            onFilterByCraft={(k, v) => { filterByCraft(k, v); closeAllOverlays(); }}
+                            similar={mostSimilar(selectedFrame, frames)}
+                            onOpenFrame={setSelectedFrame}
+                            onStudy={() => {
+                                // study this frame's project in shot order, starting here
+                                const seq = sequenceOf(frames, selectedFrame.source);
+                                const idx = Math.max(0, seq.findIndex(f => f.id === selectedFrame.id));
+                                setSelectedFrame(null);
+                                setStudy({ frames: seq, index: idx, title: 'Sequence' });
+                            }}
                         />
                     )}
 
@@ -2698,6 +3047,19 @@
                             onToast={showToast}
                             isMobile={isMobile}
                             escEnabled={!selectedFrame && !picker}
+                        />
+                    )}
+                    {study && (
+                        <StudyMode
+                            frames={study.frames}
+                            startIndex={study.index}
+                            title={study.title}
+                            onClose={closeStudy}
+                            onFilterByCraft={(k, v) => { filterByCraft(k, v); closeAllOverlays(); }}
+                            isSaved={(id) => savedSet.has(id)}
+                            onSave={handleSave}
+                            isMobile={isMobile}
+                            escEnabled={!picker}
                         />
                     )}
                     {picker && (

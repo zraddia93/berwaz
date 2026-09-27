@@ -14,3 +14,10 @@ Thumbs.db
 
 # Node
 node_modules/
+
+# Pipeline scratch (regenerated on demand)
+pipeline/sheets/
+pipeline/batches/
+pipeline/done/
+pipeline/*.jsonl
+pipeline/*.json
