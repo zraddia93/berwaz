@@ -345,6 +345,16 @@
             ),
             Check: () => (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m5 12 5 5L20 7"/></svg>
+            ),
+            Compare: ({ size = 15 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/>
+                </svg>
+            ),
+            Pipette: () => (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>
+                </svg>
             )
         };
 
@@ -1019,6 +1029,22 @@
             if (a.director === b.director) s -= 0.5;
             return s;
         };
+        // Palette search: how close is a colour to the nearest colour in a frame's palette (0 = exact)
+        const colorDistance = (hex, frame) => {
+            const c = hexToRgb(hex); if (!c) return 1e9;
+            let best = 1e9;
+            for (const h of (frame.color || [])) {
+                const d = hexToRgb(h); if (!d) continue;
+                // "redmean" weighting approximates perceptual distance far better than plain RGB
+                const rm = (c[0] + d[0]) / 2, dr = c[0]-d[0], dg = c[1]-d[1], db = c[2]-d[2];
+                const dist = Math.sqrt((2 + rm/256) * dr*dr + 4 * dg*dg + (2 + (255-rm)/256) * db*db);
+                if (dist < best) best = dist;
+            }
+            return best;
+        };
+        const COLOR_MATCH_MAX = 95; // redmean units; ~ "clearly the same colour family"
+        const normHex = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec((h || '').trim()); return m ? '#' + m[1].toUpperCase() : null; };
+
         const mostSimilar = (frame, frames, n = 6) => {
             const scored = [];
             for (const f of frames) { if (f.id === frame.id) continue; const sc = similarity(frame, f); if (sc > 4) scored.push([sc, f]); }
@@ -1028,6 +1054,22 @@
             for (const [, f] of scored) { per[f.source] = (per[f.source] || 0) + 1; if (per[f.source] > 2) continue; out.push(f); if (out.length >= n) break; }
             return out;
         };
+
+        const COMPARE_MAX = 4;
+        const COMPARE_ROWS = [
+            { label: 'Shot',        get: f => f.craft && craftLabel(f.craft.shotSize) },
+            { label: 'Angle',       get: f => f.craft && craftLabel(f.craft.angle) },
+            { label: 'Lighting',    get: f => f.craft && craftLabel(f.craft.lighting) },
+            { label: 'Time',        get: f => f.craft && f.craft.timeOfDay !== 'n-a' ? craftLabel(f.craft.timeOfDay) : '—' },
+            { label: 'Setting',     get: f => f.craft && f.craft.setting !== 'n-a' ? craftLabel(f.craft.setting) : '—' },
+            { label: 'Environment', get: f => f.craft && craftLabel(f.craft.environment) },
+            { label: 'Subject',     get: f => f.craft && craftLabel(f.craft.subject) },
+            { label: 'Mood',        get: f => f.craft && f.craft.mood.map(craftLabel).join(', ') },
+            { label: 'Temp',        get: f => f.pixels && craftLabel(f.pixels.temp) },
+            { label: 'Tone',        get: f => f.pixels && craftLabel(f.pixels.tone) },
+            { label: 'Aspect',      get: f => f.aspect },
+            { label: 'Director',    get: f => f.director },
+        ];
 
         // Craft chip (used in the filter bar and in the modal)
         const Chip = ({ active, onClick, children, small, title }) => (
@@ -1045,9 +1087,10 @@
         );
 
         // Filter Bar (sits directly under the header; its real height is measured by App)
-        const FilterBar = ({ activeTags, toggleTag, craft, toggleCraft, craftOptions, clearFilters, barRef, top, isMobile }) => {
+        const FilterBar = ({ activeTags, toggleTag, craft, toggleCraft, craftOptions, clearFilters, barRef, top, isMobile, colorFilter, onColor, onClearColor }) => {
             const [open, setOpen] = useState(() => new Set(['projects', 'lighting', 'environment', 'shotSize']));
-            const total = activeTags.length + craftCount(craft);
+            const total = activeTags.length + craftCount(craft) + (colorFilter ? 1 : 0);
+            const PRESETS = ['#D4A853', '#8B5A2B', '#C8102E', '#1F6F8B', '#2E4A7A', '#3D6B3A', '#E0C9A6', '#7A1F5C', '#F2F2F2', '#111111'];
             const groups = [
                 { key: 'projects', label: 'Projects', options: (FILTER_TAGS.projects || []).map(v => ({ value: v })), active: activeTags, onToggle: toggleTag, labelOf: v => v },
                 ...CRAFT_GROUPS.filter(g => (craftOptions[g.key] || []).length > 0).map(g => ({
@@ -1074,6 +1117,24 @@
                             )}
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: isMobile ? '6px 0' : '6px 28px' }}>
+                            {/* Colour search */}
+                            <div style={{ padding: '4px 0', borderTop: '1px solid var(--border)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', color: 'var(--text-secondary)', fontSize: '11px', letterSpacing: '.12em', textTransform: 'uppercase' }}>
+                                    <Icons.Pipette /> Colour
+                                    {colorFilter && <span style={{ color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0, textTransform: 'none' }}>{colorFilter}</span>}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', padding: '2px 0 8px' }}>
+                                    {PRESETS.map(c => (
+                                        <button key={c} onClick={() => onColor(c)} title={`Frames with ${c}`} aria-label={`Search colour ${c}`} aria-pressed={colorFilter === c}
+                                            style={{ width: '24px', height: '24px', minHeight: 0, minWidth: 0, padding: 0, borderRadius: '6px', background: c, cursor: 'pointer', border: `2px solid ${colorFilter === c ? 'var(--accent)' : 'rgba(255,255,255,.12)'}` }} />
+                                    ))}
+                                    <label title="Pick any colour" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 8px', border: '1px dashed var(--border)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                        <input type="color" value={colorFilter || '#D4A853'} onChange={(e) => onColor(e.target.value)} aria-label="Pick a colour" style={{ width: '18px', height: '18px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                                        custom
+                                    </label>
+                                    {colorFilter && <button onClick={onClearColor} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '11px', cursor: 'pointer', minHeight: 0, padding: '0 4px' }}>clear</button>}
+                                </div>
+                            </div>
                             {groups.map(g => {
                                 const isOpen = open.has(g.key) || g.active.length > 0;
                                 return (
@@ -1192,14 +1253,14 @@
         // Frame Card — shows the WHOLE frame at its true aspect ratio (a composition
         // reference must never crop the composition). Size is stable per frame, so
         // cards don't jump when filters change.
-        const FrameCard = ({ frame, index, onClick, isSaved, onSave }) => {
+        const FrameCard = ({ frame, index, onClick, isSaved, onSave, inCompare, onCompare }) => {
             const [loaded, setLoaded] = useState(false);
             const [failed, setFailed] = useState(false);
             const [hovered, setHovered] = useState(false);
             const [ratio, setRatio] = useState(() => parseAspect(frame.aspect));
 
             const handleOpen = () => onClick(frame);
-            const showSave = hovered || isSaved;
+            const showSave = hovered || isSaved || inCompare;
 
             return (
                 <div
@@ -1294,12 +1355,33 @@
                             <Icons.Bookmark filled={isSaved} size={15} />
                         </button>
                     )}
+                    {onCompare && (
+                        <button
+                            className="card-compare"
+                            aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
+                            aria-pressed={inCompare}
+                            onClick={(e) => { e.stopPropagation(); onCompare(frame); }}
+                            style={{
+                                position: 'absolute', top: '10px', right: '50px',
+                                width: '34px', height: '34px', minHeight: 0, minWidth: 0, padding: 0,
+                                borderRadius: '8px', border: '1px solid rgba(255,255,255,.12)',
+                                background: inCompare ? '#fff' : 'rgba(0,0,0,.65)',
+                                color: inCompare ? '#000' : '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', backdropFilter: 'blur(8px)',
+                                opacity: showSave ? 1 : 0, transform: showSave ? 'translateY(0)' : 'translateY(-4px)',
+                                transition: 'opacity .2s, transform .2s, background .2s'
+                            }}
+                        >
+                            <Icons.Compare />
+                        </button>
+                    )}
                 </div>
             );
         };
 
         // Frame Detail Modal
-        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, onFilterByCraft, similar, onOpenFrame, isSaved, onSave, onStudy }) => {
+        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, onFilterByCraft, similar, onOpenFrame, isSaved, onSave, onStudy, inCompare, onCompare, onColorSearch }) => {
             const [promptCopied, setPromptCopied] = useState(false);
             const [promptExpanded, setPromptExpanded] = useState(false);
             const [imgLoaded, setImgLoaded] = useState(false);
@@ -1576,7 +1658,7 @@
                                 <div style={{ marginBottom: '24px' }}>
                                     <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text-tertiary)', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
                                         <span>Craft</span>
-                                        <span style={{ textTransform: 'none', letterSpacing: 0, opacity: .7 }}>click to find more</span>
+                                        <span style={{ textTransform: 'none', letterSpacing: 0, opacity: .7 }}>click a chip or a swatch to find more</span>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                         {CRAFT_GROUPS.filter(g => g.key !== 'aspect').map(g => craftValues(frame, g).filter(v => !(g.hide || []).includes(v)).map(v => (
@@ -1602,24 +1684,27 @@
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         {frame.color.map((c, i) => (
-                                            <div key={i} style={{ textAlign: 'center' }} title={`Click to copy ${c}`}
-                                                onClick={() => { try { navigator.clipboard.writeText(c); } catch {} }}>
-                                                <div style={{
-                                                    width: '44px',
-                                                    height: '44px',
-                                                    borderRadius: '8px',
-                                                    background: c,
-                                                    marginBottom: '6px',
-                                                    border: '1px solid rgba(255,255,255,.08)',
-                                                    cursor: 'copy'
-                                                }} />
-                                                <div style={{
-                                                    fontSize: '10px',
-                                                    fontFamily: "'JetBrains Mono', monospace",
-                                                    color: 'var(--text-tertiary)'
-                                                }}>
+                                            <div key={i} style={{ textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => onColorSearch && onColorSearch(c)}
+                                                    title={`Find frames with ${c}`}
+                                                    aria-label={`Search frames by colour ${c}`}
+                                                    style={{
+                                                        width: '44px', height: '44px', minHeight: 0, minWidth: 0, padding: 0,
+                                                        borderRadius: '8px', background: c, marginBottom: '6px',
+                                                        border: '1px solid rgba(255,255,255,.08)', cursor: 'pointer', display: 'block',
+                                                        transition: 'transform .15s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                />
+                                                <button
+                                                    onClick={() => { try { navigator.clipboard.writeText(c); } catch {} }}
+                                                    title="Copy hex"
+                                                    style={{ background: 'none', border: 'none', padding: 0, minHeight: 0, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-tertiary)', cursor: 'copy' }}
+                                                >
                                                     {c}
-                                                </div>
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -1747,6 +1832,20 @@
                                 gap: '12px',
                                 flexShrink: 0
                             }}>
+                                {onCompare && (
+                                    <button
+                                        onClick={() => onCompare(frame)}
+                                        aria-pressed={inCompare}
+                                        title={inCompare ? 'Remove from compare' : 'Add to compare (up to 4)'}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                            padding: '14px 14px', background: inCompare ? '#fff' : 'var(--bg-tertiary)', color: inCompare ? '#000' : 'var(--text-primary)',
+                                            border: `1px solid ${inCompare ? '#fff' : 'var(--border)'}`, borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, flexShrink: 0
+                                        }}
+                                    >
+                                        <Icons.Compare />
+                                    </button>
+                                )}
                                 {onStudy && (
                                     <button
                                         onClick={onStudy}
@@ -2199,7 +2298,7 @@
             );
         };
 
-        const BoardsModal = ({ onClose, boardsApi, frames, initialBoardId, onOpenFrame, onToast, isMobile, escEnabled = true }) => {
+        const BoardsModal = ({ onClose, boardsApi, frames, initialBoardId, onOpenFrame, onToast, isMobile, escEnabled = true, onCompareBoard }) => {
             const { boards, createBoard, renameBoard, deleteBoard, removeFrame, moveFrame } = boardsApi;
             const [activeId, setActiveId] = useState(initialBoardId || null);
             const [editing, setEditing] = useState(false);
@@ -2316,6 +2415,7 @@
                                         <button onClick={shareLink} disabled={!items.length} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Link /> Copy share link</button>
                                         <button onClick={exportImage} disabled={!items.length || busy === 'image'} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Image /> {busy === 'image' ? 'Rendering…' : 'Download as image'}</button>
                                         <button onClick={copyPrompts} disabled={!items.length} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Copy /> Copy all AI prompts</button>
+                                        {onCompareBoard && <button onClick={() => onCompareBoard(items.slice(0, COMPARE_MAX))} disabled={items.length < 2} style={btn({ opacity: items.length >= 2 ? 1 : .5 })} title={items.length > COMPARE_MAX ? `Compares the first ${COMPARE_MAX}` : ''}><Icons.Compare size={13} /> Compare{items.length > COMPARE_MAX ? ` first ${COMPARE_MAX}` : ''}</button>}
                                         <span style={{ flex: 1 }} />
                                         <button onClick={() => { if (confirm(`Delete “${active.name}”?`)) { deleteBoard(active.id); setActiveId(null); onToast({ text: 'Board deleted' }); } }} style={btn({ color: '#ff7b7b' })}><Icons.Trash /> Delete</button>
                                     </div>
@@ -2401,7 +2501,7 @@
         const sequenceOf = (frames, source) =>
             frames.filter(f => f.source === source).slice().sort((a, b) => shotIndex(a.file) - shotIndex(b.file) || Number(a.id) - Number(b.id));
 
-        const StudyMode = ({ frames, startIndex = 0, title, onClose, onFilterByCraft, isSaved, onSave, isMobile, escEnabled = true }) => {
+        const StudyMode = ({ frames, startIndex = 0, title, onClose, onFilterByCraft, isSaved, onSave, isMobile, escEnabled = true, inCompare, onCompare, onColorSearch }) => {
             const [i, setI] = useState(Math.min(Math.max(0, startIndex), Math.max(0, frames.length - 1)));
             const [info, setInfo] = useState(!isMobile);
             const [loaded, setLoaded] = useState(false);
@@ -2409,7 +2509,7 @@
             const touch = useRef(null);
             const live = useRef({});
             const f = frames[i];
-            live.current = { i, n: frames.length, onClose, info, f, onSave, isSaved, escEnabled };
+            live.current = { i, n: frames.length, onClose, info, f, onSave, isSaved, escEnabled, onCompare };
 
             const go = useCallback((d) => setI(cur => Math.min(Math.max(0, cur + d), frames.length - 1)), [frames.length]);
             useEffect(() => { setLoaded(false); setPromptOpen(false); }, [i]);
@@ -2426,6 +2526,7 @@
                     else if (k === 'End') { e.preventDefault(); setI(frames.length - 1); }
                     else if (k === 'i' || k === 'I') { setInfo(v => !v); }
                     else if ((k === 'b' || k === 'B') && live.current.onSave) { live.current.onSave(live.current.f, null); }
+                    else if ((k === 'c' || k === 'C') && live.current.onCompare) { live.current.onCompare(live.current.f); }
                     else if (k === 'Escape') { e.stopPropagation(); live.current.onClose(); }
                 };
                 document.addEventListener('keydown', onKey, true);
@@ -2455,10 +2556,15 @@
                             <div style={{ fontSize: isMobile ? '13px' : '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>· {f.director}</span></div>
                         </div>
                         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: 'var(--text-secondary)', flexShrink: 0 }}>{i + 1} / {frames.length}</div>
-                        {!isMobile && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', flexShrink: 0 }}>← → navigate · <b style={{ color: 'var(--text-secondary)' }}>i</b> info · <b style={{ color: 'var(--text-secondary)' }}>b</b> save · esc</div>}
+                        {!isMobile && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', flexShrink: 0 }}>← → navigate · <b style={{ color: 'var(--text-secondary)' }}>i</b> info · <b style={{ color: 'var(--text-secondary)' }}>b</b> save · <b style={{ color: 'var(--text-secondary)' }}>c</b> compare · esc</div>}
                         {onSave && (
                             <button onClick={(e) => onSave(f, e.currentTarget.getBoundingClientRect())} aria-pressed={saved} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: saved ? 'var(--accent)' : 'rgba(255,255,255,.06)', color: saved ? '#000' : '#fff', border: '1px solid ' + (saved ? 'var(--accent)' : '#2a2a2a'), borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, minHeight: 0 }}>
                                 <Icons.Bookmark filled={saved} size={14} />{!isMobile && (saved ? 'Saved' : 'Save')}
+                            </button>
+                        )}
+                        {onCompare && (
+                            <button onClick={() => onCompare(f)} aria-pressed={inCompare ? inCompare(f.id) : false} title="Add to compare (c)" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: inCompare && inCompare(f.id) ? '#fff' : 'rgba(255,255,255,.06)', color: inCompare && inCompare(f.id) ? '#000' : '#fff', border: '1px solid #2a2a2a', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, minHeight: 0 }}>
+                                <Icons.Compare size={14} />{!isMobile && 'Compare'}
                             </button>
                         )}
                         <button onClick={() => setInfo(v => !v)} aria-pressed={info} title="Toggle info (i)" style={{ padding: '8px 12px', background: info ? 'rgba(255,217,0,.12)' : 'rgba(255,255,255,.06)', color: info ? 'var(--accent)' : '#fff', border: '1px solid ' + (info ? 'rgba(255,217,0,.4)' : '#2a2a2a'), borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, minHeight: 0 }}>Info</button>
@@ -2499,7 +2605,7 @@
                                     <div style={{ marginBottom: '16px' }}>
                                         <div style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Palette</div>
                                         <div style={{ display: 'flex', gap: '6px' }}>
-                                            {f.color.map((c, k) => <div key={k} title={c} style={{ flex: 1, height: '34px', borderRadius: '6px', background: c, border: '1px solid rgba(255,255,255,.08)' }} />)}
+                                            {f.color.map((c, k) => <button key={k} onClick={() => onColorSearch && onColorSearch(c)} title={`Find frames with ${c}`} style={{ flex: 1, height: '34px', borderRadius: '6px', background: c, border: '1px solid rgba(255,255,255,.08)', cursor: 'pointer', padding: 0, minHeight: 0 }} />)}
                                         </div>
                                     </div>
                                 )}
@@ -2524,6 +2630,124 @@
                                 </button>
                             );
                         })}
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════════════════════════════
+        // COMPARE — a tray of up to 4 frames, then a side-by-side view where
+        // the craft rows line up across columns so the eye reads across.
+        // ═══════════════════════════════════════════════════════════════
+        const CompareTray = ({ items, onRemove, onClear, onOpen, isMobile }) => {
+            if (!items.length) return null;
+            return (
+                <div role="region" aria-label="Compare tray" style={{
+                    position: 'fixed', left: '50%', bottom: isMobile ? '12px' : '20px', transform: 'translateX(-50%)',
+                    zIndex: 190, display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '8px 10px 8px 12px', background: 'rgba(12,12,12,.92)', border: '1px solid var(--border)',
+                    borderRadius: '14px', boxShadow: '0 16px 50px rgba(0,0,0,.6)', backdropFilter: 'blur(12px)',
+                    maxWidth: 'calc(100vw - 24px)', animation: 'slideUp .25s ease-out'
+                }}>
+                    <span style={{ fontSize: '10px', letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Compare</span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        {items.map(f => (
+                            <div key={f.id} style={{ position: 'relative', width: isMobile ? '48px' : '64px', aspectRatio: '16/9', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
+                                <img src={f.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                <button aria-label={`Remove ${f.source} from compare`} onClick={() => onRemove(f.id)} style={{ position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px', minHeight: 0, minWidth: 0, padding: 0, borderRadius: '4px', border: 'none', background: 'rgba(0,0,0,.75)', color: '#fff', fontSize: '11px', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                            </div>
+                        ))}
+                        {items.length < COMPARE_MAX && Array.from({ length: Math.min(1, COMPARE_MAX - items.length) }).map((_, k) => (
+                            <div key={'e' + k} style={{ width: isMobile ? '48px' : '64px', aspectRatio: '16/9', borderRadius: '6px', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', fontSize: '14px' }}>+</div>
+                        ))}
+                    </div>
+                    <button onClick={onOpen} disabled={items.length < 2} title={items.length < 2 ? 'Add at least two frames' : 'Open side-by-side view'} style={{ padding: '8px 14px', background: items.length >= 2 ? 'var(--accent)' : 'var(--bg-tertiary)', color: items.length >= 2 ? '#000' : 'var(--text-tertiary)', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: items.length >= 2 ? 'pointer' : 'default', minHeight: 0, whiteSpace: 'nowrap' }}>
+                        {isMobile ? `View (${items.length})` : `Compare ${items.length}`}
+                    </button>
+                    <button onClick={onClear} aria-label="Clear compare tray" style={{ width: '28px', height: '28px', minHeight: 0, minWidth: 0, padding: 0, background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.X /></button>
+                </div>
+            );
+        };
+
+        const CompareModal = ({ items, onClose, onRemove, onOpenFrame, onFilterByCraft, onColorSearch, isMobile, escEnabled = true }) => {
+            useModalChrome(onClose, escEnabled);
+            const [showPrompt, setShowPrompt] = useState(false);
+            const cols = items.length;
+            // Highlight a row when every column agrees — that's the "what do these share" signal
+            const rowAgree = (row) => { const vals = items.map(row.get); return vals.every(v => v && v === vals[0]); };
+            const grid = { display: 'grid', gridTemplateColumns: `${isMobile ? '78px' : '110px'} repeat(${cols}, minmax(0, 1fr))`, gap: '0 10px', alignItems: 'center' };
+            const label = (t) => <div style={{ fontSize: '10px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--text-tertiary)', padding: '9px 0' }}>{t}</div>;
+            return (
+                <div onClick={onClose} role="dialog" aria-modal="true" aria-label="Compare frames" style={{ position: 'fixed', inset: 0, zIndex: 225, background: 'rgba(0,0,0,.96)', overflowY: 'auto', overscrollBehavior: 'contain', animation: 'fadeIn .2s ease-out', padding: isMobile ? '56px 10px 20px' : '28px 32px 40px' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1500px', margin: '0 auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                            <div>
+                                <div style={{ fontSize: '10px', letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--accent)' }}>Compare</div>
+                                <div style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: 600 }}>{cols} frames side by side</div>
+                            </div>
+                            <span style={{ flex: 1 }} />
+                            <button onClick={() => setShowPrompt(v => !v)} style={{ padding: '8px 12px', background: showPrompt ? 'rgba(255,217,0,.12)' : 'var(--bg-tertiary)', color: showPrompt ? 'var(--accent)' : 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', minHeight: 0 }}>Descriptions</button>
+                            <button onClick={onClose} aria-label="Close compare" style={{ width: '36px', height: '36px', minHeight: 0, minWidth: 0, padding: 0, background: 'var(--bg-tertiary)', color: '#fff', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.X /></button>
+                        </div>
+
+                        {/* Images */}
+                        <div style={grid}>
+                            <div />
+                            {items.map(f => (
+                                <div key={f.id} style={{ minWidth: 0 }}>
+                                    <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-tertiary)', aspectRatio: '16/9', border: '1px solid var(--border)' }}>
+                                        <img src={f.image} alt={f.source} onClick={() => onOpenFrame(f)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#000', cursor: 'zoom-in' }} />
+                                        <button aria-label="Remove from compare" onClick={() => onRemove(f.id)} style={{ position: 'absolute', top: '8px', right: '8px', width: '26px', height: '26px', minHeight: 0, minWidth: 0, padding: 0, borderRadius: '6px', border: 'none', background: 'rgba(0,0,0,.7)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.X /></button>
+                                    </div>
+                                    <div style={{ marginTop: '8px', minWidth: 0 }}>
+                                        <div style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source}</div>
+                                        {f.sourceAr && <div dir="rtl" style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: '14px', color: 'var(--accent)', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.sourceAr}</div>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Palettes */}
+                        <div style={{ ...grid, marginTop: '14px', borderTop: '1px solid var(--border)' }}>
+                            {label('Palette')}
+                            {items.map(f => (
+                                <div key={f.id} style={{ display: 'flex', gap: '4px', padding: '6px 0' }}>
+                                    {(f.color || []).map((c, k) => (
+                                        <button key={k} onClick={() => onColorSearch && onColorSearch(c)} title={`Find frames with ${c}`} style={{ flex: 1, height: isMobile ? '22px' : '30px', borderRadius: '5px', background: c, border: '1px solid rgba(255,255,255,.08)', cursor: 'pointer', padding: 0, minHeight: 0 }} />
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Aligned craft rows */}
+                        {COMPARE_ROWS.map(row => {
+                            const agree = rowAgree(row);
+                            return (
+                                <div key={row.label} style={{ ...grid, borderTop: '1px solid var(--border)', background: agree ? 'rgba(255,217,0,.05)' : 'transparent' }}>
+                                    {label(row.label)}
+                                    {items.map(f => {
+                                        const v = row.get(f) || '—';
+                                        const key = CRAFT_GROUPS.find(g => g.label === row.label || (row.label === 'Shot' && g.key === 'shotSize') || (row.label === 'Time' && g.key === 'timeOfDay') || (row.label === 'Temp' && g.key === 'temp'));
+                                        const raw = key ? craftValues(f, key)[0] : null;
+                                        return (
+                                            <div key={f.id} style={{ padding: '6px 0', minWidth: 0 }}>
+                                                {key && raw && !(key.hide || []).includes(raw) && onFilterByCraft
+                                                    ? <button onClick={() => onFilterByCraft(key.key, raw)} title={`Find all ${craftLabel(raw)}`} style={{ background: 'none', border: 'none', padding: 0, color: agree ? 'var(--accent)' : 'var(--text-primary)', fontSize: isMobile ? '12px' : '13px', cursor: 'pointer', textAlign: 'left', minHeight: 0, borderBottom: '1px dashed rgba(255,255,255,.15)' }}>{v}</button>
+                                                    : <span style={{ color: agree ? 'var(--accent)' : 'var(--text-primary)', fontSize: isMobile ? '12px' : '13px' }}>{v}</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+
+                        {showPrompt && (
+                            <div style={{ ...grid, borderTop: '1px solid var(--border)', alignItems: 'start' }}>
+                                {label('Description')}
+                                {items.map(f => <div key={f.id} style={{ fontSize: '12px', lineHeight: 1.6, color: 'var(--text-secondary)', padding: '8px 0' }}>{f.prompt}</div>)}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '14px' }}>Highlighted rows are where all {cols} frames agree. Click any value to find more frames like it; click a swatch to search by colour.</div>
                     </div>
                 </div>
             );
@@ -2635,6 +2859,7 @@
             const clearFilters = useCallback(() => {
                 setActiveTags([]);
                 setCraft({});
+                setColorFilter(null);
                 setFilterDirector(null);
                 setFilterSource(null);
                 setSearchQuery('');
@@ -2648,6 +2873,7 @@
             const closeAllOverlays = useCallback(() => {
                 setSelectedFrame(null);
                 setStudy(null);
+                setShowCompare(false);
                 setShowBoards(false);
                 setSharedBoard(null);
                 setPicker(null);
@@ -2678,6 +2904,21 @@
             const handleCloseAbout = useCallback(() => setShowAbout(false), []);
             const handleCloseFeatured = useCallback(() => setShowFeatured(false), []);
 
+            // ── Palette search ── a hex colour; frames ranked by nearest palette colour
+            const [colorFilter, setColorFilter] = useState(() => normHex(new URLSearchParams(window.location.search).get('color') || ''));
+            const searchByColor = useCallback((hex) => {
+                const h = normHex(hex); if (!h) return;
+                setColorFilter(h);
+                resetView();
+            }, [resetView]);
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (colorFilter) params.set('color', colorFilter.slice(1)); else params.delete('color');
+                const q = params.toString();
+                const url = window.location.pathname + (q ? '?' + q : '') + window.location.hash;
+                if (url !== window.location.pathname + window.location.search + window.location.hash) window.history.replaceState(null, '', url);
+            }, [colorFilter]);
+
             // ── Study mode ── { frames, index, title }
             const [study, setStudy] = useState(null);
             const [autoStudy] = useState(() => new URLSearchParams(window.location.search).get('study') === '1');
@@ -2707,6 +2948,32 @@
                 toastTimer.current = setTimeout(() => setToast(null), 2800);
             }, []);
             useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+            // ── Compare tray ── up to COMPARE_MAX frames
+            const [compareIds, setCompareIds] = useState([]);
+            const [showCompare, setShowCompare] = useState(false);
+            const compareItems = useMemo(() => compareIds.map(id => frames.find(f => f.id === id)).filter(Boolean), [compareIds, frames]);
+            const compareSet = useMemo(() => new Set(compareIds), [compareIds]);
+            const compareRef = useRef(compareIds);
+            compareRef.current = compareIds;
+            const toggleCompare = useCallback((frame) => {
+                // Decide from the live ref, not inside the updater (React may run updaters later)
+                const prev = compareRef.current;
+                if (prev.includes(frame.id)) {
+                    setCompareIds(prev.filter(x => x !== frame.id));
+                    showToast({ text: 'Removed from compare' });
+                    return;
+                }
+                if (prev.length >= COMPARE_MAX) {
+                    showToast({ text: `Compare holds ${COMPARE_MAX} frames — remove one first` });
+                    return;
+                }
+                const n = prev.length + 1;
+                setCompareIds([...prev, frame.id]);
+                showToast({ text: n >= 2 ? `Added to compare (${n})` : 'Added to compare — pick one more', action: n >= 2 ? { label: 'View', onClick: () => { setToast(null); setShowCompare(true); } } : null });
+            }, [showToast]);
+            const removeCompare = useCallback((id) => setCompareIds(prev => { const n = prev.filter(x => x !== id); if (n.length < 2) setShowCompare(false); return n; }), []);
+
 
             const savedSet = useMemo(() => new Set(boardsApi.boards.flatMap(b => b.frames)), [boardsApi.boards]);
 
@@ -2779,11 +3046,20 @@
                     );
                 }
 
+                // Palette search: keep frames with a close colour, nearest first
+                if (colorFilter) {
+                    result = result
+                        .map(f => [colorDistance(colorFilter, f), f])
+                        .filter(([d]) => d <= COLOR_MATCH_MAX)
+                        .sort((a, b) => a[0] - b[0])
+                        .map(([, f]) => f);
+                }
+
                 // A single project is a film: show it in shot order, not shuffled
-                if (filterSource) result = result.slice().sort((a, b) => shotIndex(a.file) - shotIndex(b.file) || Number(a.id) - Number(b.id));
+                if (filterSource && !colorFilter) result = result.slice().sort((a, b) => shotIndex(a.file) - shotIndex(b.file) || Number(a.id) - Number(b.id));
 
                 return result;
-            }, [frames, searchQuery, activeTags, craft, filterDirector, filterSource]);
+            }, [frames, searchQuery, activeTags, craft, filterDirector, filterSource, colorFilter]);
 
             // Deep link: ?source=X&study=1 opens the sequence straight into study mode
             useEffect(() => {
@@ -2794,7 +3070,7 @@
             }, [autoStudy, filterSource, filteredFrames.length]);
 
             // Reset paging whenever the result set changes size
-            useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, activeTags, craft, filterDirector, filterSource]);
+            useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, activeTags, craft, filterDirector, filterSource, colorFilter]);
 
             const visibleFrames = useMemo(
                 () => filteredFrames.slice(0, visibleCount),
@@ -2823,7 +3099,7 @@
                         setSearchQuery={setSearchQuery}
                         showFilters={showFilters}
                         setShowFilters={setShowFilters}
-                        filtersActive={activeTags.length + craftCount(craft)}
+                        filtersActive={activeTags.length + craftCount(craft) + (colorFilter ? 1 : 0)}
                         onShowAbout={() => setShowAbout(true)}
                         onShowFeatured={() => setShowFeatured(true)}
                         onShowBoards={() => openBoards()}
@@ -2843,6 +3119,9 @@
                             barRef={filterBarRef}
                             top={headerH}
                             isMobile={isMobile}
+                            colorFilter={colorFilter}
+                            onColor={searchByColor}
+                            onClearColor={() => { setColorFilter(null); resetView(); }}
                         />
                     )}
 
@@ -2851,6 +3130,22 @@
                         paddingTop: `${headerH + filterH + 24}px`,
                         transition: 'padding 0.25s ease'
                     }}>
+                        {/* Colour search banner */}
+                        {colorFilter && (
+                            <div style={{ maxWidth: '1800px', margin: '0 auto 16px', padding: '0 24px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ width: '28px', height: '28px', borderRadius: '6px', background: colorFilter, border: '1px solid rgba(255,255,255,.15)', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '13px' }}>Frames whose palette contains <strong style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>{colorFilter}</strong> <span style={{ color: 'var(--text-tertiary)' }}>· closest first</span></span>
+                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                        <Icons.Pipette /> change
+                                        <input type="color" value={colorFilter} onChange={(e) => searchByColor(e.target.value)} aria-label="Pick a colour" style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                                    </label>
+                                    <span style={{ flex: 1 }} />
+                                    <button onClick={() => { setColorFilter(null); resetView(); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', minHeight: 0 }}>Clear</button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Filter Banners */}
                         {(filterDirector || filterSource) && (
                             <div style={{
@@ -2959,6 +3254,8 @@
                                             onClick={setSelectedFrame}
                                             isSaved={savedSet.has(frame.id)}
                                             onSave={handleSave}
+                                            inCompare={compareSet.has(frame.id)}
+                                            onCompare={toggleCompare}
                                         />
                                     </div>
                                 ))}
@@ -3014,6 +3311,9 @@
                             onFilterByCraft={(k, v) => { filterByCraft(k, v); closeAllOverlays(); }}
                             similar={mostSimilar(selectedFrame, frames)}
                             onOpenFrame={setSelectedFrame}
+                            inCompare={compareSet.has(selectedFrame.id)}
+                            onCompare={toggleCompare}
+                            onColorSearch={(c) => { searchByColor(c); closeAllOverlays(); }}
                             onStudy={() => {
                                 // study this frame's project in shot order, starting here
                                 const seq = sequenceOf(frames, selectedFrame.source);
@@ -3034,7 +3334,8 @@
                             onOpenFrame={(f) => setSelectedFrame(f)}
                             onToast={showToast}
                             isMobile={isMobile}
-                            escEnabled={!selectedFrame && !picker}
+                            escEnabled={!selectedFrame && !picker && !showCompare}
+                            onCompareBoard={(items) => { setCompareIds(items.map(f => f.id)); setShowBoards(false); setShowCompare(true); }}
                         />
                     )}
                     {sharedBoard && !showBoards && (
@@ -3059,7 +3360,31 @@
                             isSaved={(id) => savedSet.has(id)}
                             onSave={handleSave}
                             isMobile={isMobile}
-                            escEnabled={!picker}
+                            escEnabled={!picker && !showCompare}
+                            inCompare={(id) => compareSet.has(id)}
+                            onCompare={toggleCompare}
+                            onColorSearch={(c) => { searchByColor(c); closeAllOverlays(); }}
+                        />
+                    )}
+                    {showCompare && compareItems.length >= 2 && (
+                        <CompareModal
+                            items={compareItems}
+                            onClose={() => setShowCompare(false)}
+                            onRemove={removeCompare}
+                            onOpenFrame={(f) => setSelectedFrame(f)}
+                            onFilterByCraft={(k, v) => { filterByCraft(k, v); closeAllOverlays(); }}
+                            onColorSearch={(c) => { searchByColor(c); closeAllOverlays(); }}
+                            isMobile={isMobile}
+                            escEnabled={!selectedFrame && !picker}
+                        />
+                    )}
+                    {!showCompare && !study && (
+                        <CompareTray
+                            items={compareItems}
+                            onRemove={removeCompare}
+                            onClear={() => setCompareIds([])}
+                            onOpen={() => setShowCompare(true)}
+                            isMobile={isMobile}
                         />
                     )}
                     {picker && (
@@ -3166,9 +3491,9 @@
         }
 
         /* Bookmark on cards: always visible where there is no hover (touch) */
-        @media (hover: none) { .card-save { opacity: 1 !important; transform: none !important; } }
+        @media (hover: none) { .card-save, .card-compare { opacity: 1 !important; transform: none !important; } }
         .frame-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .frame-card:focus-visible .card-save { opacity: 1; transform: none; }
+        .frame-card:focus-visible .card-save, .frame-card:focus-visible .card-compare { opacity: 1 !important; transform: none !important; }
 
         /* AI prompt collapsed preview (3 lines) */
         .prompt-clamp {
