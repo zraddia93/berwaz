@@ -134,7 +134,7 @@
             async publish() { const r = await fetch(`${API}/publish`, { method: 'POST' }); if (!r.ok) throw new Error('Failed'); return r.json(); }
         };
         const slugify = s => s.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
-        const frameUrl = f => f.file ? R2_URL + encodeURI(f.file) : '';
+        const frameUrl = f => f.file ? R2_URL + String(f.file).split('/').map(encodeURIComponent).join('/') : '';
 
         // ═══════════════════════════════════════
         // Shared Components
@@ -270,9 +270,16 @@
             const save = (form, isNew) => {
                 const d = { ...form };
                 if (isNew) d.id = slugify(d.name);
-                const updated = { ...config, directors: isNew ? [...config.directors, d] : config.directors.map(x => x.id === d.id ? d : x) };
+                const old = isNew ? null : config.directors.find(x => x.id === d.id);
+                const renamed = old && old.name !== d.name;
+                const updated = {
+                    ...config,
+                    directors: isNew ? [...config.directors, d] : config.directors.map(x => x.id === d.id ? d : x),
+                    // keep every frame attached to the director after a rename
+                    frames: renamed ? config.frames.map(f => f.director === old.name ? { ...f, director: d.name } : f) : config.frames
+                };
                 setConfig(updated);
-                api.saveConfig(updated).then(() => showToast(isNew ? 'Director added' : 'Director updated', 'success'));
+                api.saveConfig(updated).then(() => showToast(isNew ? 'Director added' : 'Director updated', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
                 setModal(null);
             };
 
@@ -282,7 +289,7 @@
                 if (!confirm(`Delete "${d.name}"?`)) return;
                 const updated = { ...config, directors: config.directors.filter(x => x.id !== d.id) };
                 setConfig(updated);
-                api.saveConfig(updated).then(() => showToast('Director deleted', 'success'));
+                api.saveConfig(updated).then(() => showToast('Director deleted', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
             };
 
             const DirectorForm = ({ director, isNew }) => {
@@ -357,7 +364,7 @@
 
             const filtered = useMemo(() => {
                 let fr = config.frames || [];
-                if (search) { const q = search.toLowerCase(); fr = fr.filter(f => [f.source,f.director,f.title,f.file,f.prompt,...(f.tags||[])].some(x => (x||'').toLowerCase().includes(q))); }
+                if (search) { const q = search.toLowerCase(); fr = fr.filter(f => [f.source,f.sourceAr,f.director,f.title,f.file,f.prompt,...(f.tags||[])].some(x => (x||'').toLowerCase().includes(q))); }
                 if (fDir) fr = fr.filter(f => f.director === fDir);
                 if (fSrc) fr = fr.filter(f => f.source === fSrc);
                 return fr;
@@ -368,13 +375,13 @@
 
             const saveFrame = (frame) => {
                 const updated = { ...config, frames: config.frames.map(f => f.id === frame.id ? frame : f) };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast('Frame updated', 'success')); setEditFrame(null);
+                setConfig(updated); api.saveConfig(updated).then(() => showToast('Frame updated', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error')); setEditFrame(null);
             };
             const deleteFrames = (ids) => {
                 if (!confirm(`Delete ${ids.length} frame(s)?`)) return;
                 const idSet = new Set(ids);
                 const updated = { ...config, frames: config.frames.filter(f => !idSet.has(f.id)) };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast(`Deleted ${ids.length} frame(s)`, 'success')); setSel(new Set());
+                setConfig(updated); api.saveConfig(updated).then(() => showToast(`Deleted ${ids.length} frame(s)`, 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error')); setSel(new Set());
             };
             const bulkUpdate = (field, value) => {
                 const updated = { ...config, frames: config.frames.map(f => {
@@ -382,9 +389,13 @@
                     if (field === 'tags_add') return { ...f, tags: [...new Set([...(f.tags||[]), ...value])] };
                     if (field === 'tags_remove') return { ...f, tags: (f.tags||[]).filter(t => !value.includes(t)) };
                     if (field === 'category') return f; // handled separately
+                    if (field === 'source') {
+                        const twin = config.frames.find(x => x.source === value && x.sourceAr);
+                        return { ...f, source: value, sourceAr: twin ? twin.sourceAr : '' };
+                    }
                     return { ...f, [field]: value };
                 })};
-                setConfig(updated); api.saveConfig(updated).then(() => { showToast(`Updated ${sel.size} frames`, 'success'); setSel(new Set()); setBulkModal(false); });
+                setConfig(updated); api.saveConfig(updated).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error')).then(() => { showToast(`Updated ${sel.size} frames`, 'success'); setSel(new Set()); setBulkModal(false); });
             };
             const toggle = id => { const s = new Set(sel); s.has(id) ? s.delete(id) : s.add(id); setSel(s); };
             const toggleAll = () => { sel.size === filtered.length ? setSel(new Set()) : setSel(new Set(filtered.map(f=>f.id))); };
@@ -402,6 +413,7 @@
                         </div>}
                         <div className="form-row-3">
                             <div className="form-group"><label>Source / Project</label><input value={f.source} onChange={e => s('source', e.target.value)} /></div>
+                            <div className="form-group"><label>Project (Arabic)</label><input dir="rtl" value={f.sourceAr||''} onChange={e => s('sourceAr', e.target.value)} placeholder="الاسم بالعربي" /></div>
                             <div className="form-group"><label>Director</label>
                                 <select value={f.director} onChange={e => s('director', e.target.value)}>
                                     {(config.directors||[]).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
@@ -548,7 +560,7 @@
                 const map = {};
                 (config.frames||[]).forEach(f => {
                     if (!f.source) return;
-                    if (!map[f.source]) map[f.source] = { name: f.source, count: 0, directors: new Set(), years: new Set() };
+                    if (!map[f.source]) map[f.source] = { name: f.source, nameAr: f.sourceAr || '', count: 0, directors: new Set(), years: new Set() };
                     map[f.source].count++;
                     map[f.source].directors.add(f.director);
                     map[f.source].years.add(f.year);
@@ -566,7 +578,13 @@
                 else delete newPc[projectName];
                 const updated = { ...config, projectCategories: newPc };
                 setConfig(updated);
-                api.saveConfig(updated).then(() => showToast(`"${projectName}" → ${category || 'Uncategorized'}`, 'success'));
+                api.saveConfig(updated).then(() => showToast(`"${projectName}" → ${category || 'Uncategorized'}`, 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
+            };
+
+            const setArabic = (projectName, ar) => {
+                const updated = { ...config, frames: config.frames.map(f => f.source === projectName ? { ...f, sourceAr: ar } : f) };
+                setConfig(updated);
+                api.saveConfig(updated).then(() => showToast('Arabic name saved', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
             };
 
             const rename = (oldName, newName) => {
@@ -575,7 +593,7 @@
                 if (newPc[oldName]) { newPc[newName] = newPc[oldName]; delete newPc[oldName]; }
                 const updated = { ...config, frames: config.frames.map(f => f.source === oldName ? { ...f, source: newName } : f), projectCategories: newPc };
                 setConfig(updated);
-                api.saveConfig(updated).then(() => showToast(`Renamed "${oldName}" → "${newName}"`, 'success'));
+                api.saveConfig(updated).then(() => showToast(`Renamed "${oldName}" → "${newName}"`, 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
                 setEditProject(null);
             };
 
@@ -598,7 +616,7 @@
 
                     <div className="card scroll-table" style={{ padding: 0 }}>
                         <table>
-                            <thead><tr><th>Project</th><th>Frames</th><th>Director(s)</th><th>Year(s)</th><th style={{minWidth:180}}>Category</th><th style={{width:90}}>Actions</th></tr></thead>
+                            <thead><tr><th>Project</th><th>Arabic</th><th>Frames</th><th>Director(s)</th><th>Year(s)</th><th style={{minWidth:180}}>Category</th><th style={{width:90}}>Actions</th></tr></thead>
                             <tbody>{projects.map(p => (
                                 <tr key={p.name}>
                                     <td style={{ fontWeight: 600 }}>
@@ -609,6 +627,12 @@
                                                 <button className="btn btn-secondary btn-xs" onClick={() => setEditProject(null)}>✕</button>
                                             </div>
                                         ) : p.name}
+                                    </td>
+                                    <td>
+                                        <input dir="rtl" defaultValue={p.nameAr} placeholder="—" key={p.name + '|' + p.nameAr}
+                                            onBlur={e => { const v = e.target.value.trim(); if (v !== p.nameAr) setArabic(p.name, v); }}
+                                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                            style={{ fontSize: 13, padding: '5px 10px', minWidth: 160 }} />
                                     </td>
                                     <td><span className="badge badge-accent">{p.count}</span></td>
                                     <td style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[...p.directors].join(', ')}</td>
@@ -649,12 +673,12 @@
             const renameTag = (oldName, newName) => {
                 if (!newName || oldName === newName) return;
                 const updated = { ...config, frames: config.frames.map(f => ({ ...f, tags: (f.tags||[]).map(t => t === oldName ? newName : t) })) };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast(`Renamed "${oldName}" → "${newName}"`, 'success')); setEditTag(null);
+                setConfig(updated); api.saveConfig(updated).then(() => showToast(`Renamed "${oldName}" → "${newName}"`, 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error')); setEditTag(null);
             };
             const deleteTag = (name) => {
                 if (!confirm(`Remove "${name}" from all frames?`)) return;
                 const updated = { ...config, frames: config.frames.map(f => ({ ...f, tags: (f.tags||[]).filter(t => t !== name) })) };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast(`Tag "${name}" removed`, 'success'));
+                setConfig(updated); api.saveConfig(updated).then(() => showToast(`Tag "${name}" removed`, 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
             };
 
             // Bulk add tags to frames matching a source/director
@@ -670,7 +694,7 @@
                         return f;
                     })};
                     const affected = updated.frames.filter(f => (f[field]||'').toLowerCase().includes(match.toLowerCase())).length;
-                    setConfig(updated); api.saveConfig(updated).then(() => { showToast(`Added tags to ${affected} frames`, 'success'); setBulkAdd(false); });
+                    setConfig(updated); api.saveConfig(updated).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error')).then(() => { showToast(`Added tags to ${affected} frames`, 'success'); setBulkAdd(false); });
                 };
                 return (
                     <Modal title="Bulk Add Tags" onClose={() => setBulkAdd(false)}
@@ -746,14 +770,14 @@
             const addCat = () => {
                 if (!newCat.trim() || categories.includes(newCat.trim())) return;
                 const updated = { ...config, filterTags: { ...config.filterTags, projects: [...categories, newCat.trim()] } };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast('Category added', 'success')); setNewCat('');
+                setConfig(updated); api.saveConfig(updated).then(() => showToast('Category added', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error')); setNewCat('');
             };
             const removeCat = (cat) => {
                 if (!confirm(`Remove "${cat}"? Projects assigned to it will become uncategorized.`)) return;
                 const newPc = { ...pc };
                 Object.keys(newPc).forEach(k => { if (newPc[k] === cat) delete newPc[k]; });
                 const updated = { ...config, filterTags: { ...config.filterTags, projects: categories.filter(c => c !== cat) }, projectCategories: newPc };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast('Category removed', 'success'));
+                setConfig(updated); api.saveConfig(updated).then(() => showToast('Category removed', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
             };
             const renameCat = (oldName) => {
                 const newName = prompt('New category name:', oldName);
@@ -761,7 +785,7 @@
                 const newPc = { ...pc };
                 Object.keys(newPc).forEach(k => { if (newPc[k] === oldName) newPc[k] = newName; });
                 const updated = { ...config, filterTags: { ...config.filterTags, projects: categories.map(c => c === oldName ? newName : c) }, projectCategories: newPc };
-                setConfig(updated); api.saveConfig(updated).then(() => showToast('Category renamed', 'success'));
+                setConfig(updated); api.saveConfig(updated).then(() => showToast('Category renamed', 'success')).catch(() => showToast('Save failed — not written to disk. Is admin-server.py running?', 'error'));
             };
 
             return (

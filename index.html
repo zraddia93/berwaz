@@ -413,8 +413,14 @@
             try { localStorage.setItem(BOARDS_KEY, JSON.stringify(boards)); } catch {}
         };
 
-        const useBoards = () => {
-            const [boards, setBoards] = useState(loadBoards);
+        const useBoards = (validIds) => {
+            const [boards, setBoards] = useState(() => {
+                const b = loadBoards();
+                // Drop ids of frames that no longer exist in the library
+                return validIds ? b.map(x => ({ ...x, frames: x.frames.filter(id => validIds.has(id)) })) : b;
+            });
+            const boardsRef = useRef(boards);
+            boardsRef.current = boards;
             const [lastBoardId, setLastBoardId] = useState(() => { try { return localStorage.getItem(BOARDS_KEY + '_last') || null; } catch { return null; } });
 
             useEffect(() => { persistBoards(boards); }, [boards]);
@@ -428,24 +434,26 @@
             }, []);
 
             const createBoard = useCallback((name, frames = []) => {
-                const b = { id: uid(), name: (name || 'Untitled board').trim().slice(0, 60), frames: [...new Set(frames)], createdAt: Date.now(), updatedAt: Date.now() };
+                const b = { id: uid(), name: ((name || '').trim() || 'Untitled board').slice(0, 60), frames: [...new Set(frames)], createdAt: Date.now(), updatedAt: Date.now() };
                 setBoards(prev => [b, ...prev]);
                 setLastBoardId(b.id);
                 return b;
             }, []);
             const renameBoard = useCallback((id, name) => {
-                setBoards(prev => prev.map(b => b.id === id ? { ...b, name: (name || b.name).trim().slice(0, 60), updatedAt: Date.now() } : b));
+                const n = (name || '').trim().slice(0, 60);
+                if (!n) return; // ignore empty / whitespace-only renames
+                setBoards(prev => prev.map(b => b.id === id ? { ...b, name: n, updatedAt: Date.now() } : b));
             }, []);
             const deleteBoard = useCallback((id) => {
                 setBoards(prev => prev.filter(b => b.id !== id));
                 setLastBoardId(prev => prev === id ? null : prev);
             }, []);
             const toggleFrame = useCallback((boardId, frameId) => {
-                let added = false;
+                const cur = boardsRef.current.find(b => b.id === boardId);
+                const added = !(cur && cur.frames.includes(frameId));
                 setBoards(prev => prev.map(b => {
                     if (b.id !== boardId) return b;
                     const has = b.frames.includes(frameId);
-                    added = !has;
                     return { ...b, frames: has ? b.frames.filter(x => x !== frameId) : [...b.frames, frameId], updatedAt: Date.now() };
                 }));
                 setLastBoardId(boardId);
@@ -481,7 +489,7 @@
             try {
                 const b64 = param.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((param.length + 3) % 4);
                 const payload = decodeURIComponent(escape(atob(b64)));
-                const i = payload.indexOf('|');
+                const i = payload.lastIndexOf('|');
                 if (i < 0) return null;
                 const name = payload.slice(0, i).trim().slice(0, 60) || 'Shared board';
                 const frames = payload.slice(i + 1).split(',').map(x => x.trim()).filter(Boolean);
@@ -991,11 +999,9 @@
             const saved = new Set(savedIn(frame.id));
 
             useEffect(() => {
-                const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onDone(); };
                 const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onDone(); } };
-                document.addEventListener('mousedown', onDown);
                 document.addEventListener('keydown', onKey, true);
-                return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey, true); };
+                return () => document.removeEventListener('keydown', onKey, true);
             }, [onDone]);
             useEffect(() => { if (creating && inputRef.current) inputRef.current.focus(); }, [creating]);
 
@@ -1006,13 +1012,21 @@
             };
 
             // Position: below the anchor if given, else centered in viewport (mobile / modal)
-            const style = anchorRect
-                ? { position: 'fixed', top: Math.min(anchorRect.bottom + 8, window.innerHeight - 320), left: Math.max(8, Math.min(anchorRect.right - 260, window.innerWidth - 268)) }
+            const style = (anchorRect && window.innerHeight >= 520)
+                ? { position: 'fixed', top: Math.max(8, Math.min(anchorRect.bottom + 8, window.innerHeight - 330)), left: Math.max(8, Math.min(anchorRect.right - 260, window.innerWidth - 268)) }
                 : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
             return (
-                <div ref={ref} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Choose a board" style={{
-                    ...style, zIndex: 350, width: '260px',
+                <>
+                {/* Backdrop swallows the dismiss gesture so it can't click through to a card or close the frame modal */}
+                <div
+                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onDone(); }}
+                    onTouchStart={(e) => { e.stopPropagation(); onDone(); }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ position: 'fixed', inset: 0, zIndex: 349, background: anchorRect ? 'transparent' : 'rgba(0,0,0,.55)' }}
+                />
+                <div ref={ref} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="Choose a board" style={{
+                    ...style, zIndex: 350, width: '260px', maxHeight: 'calc(100vh - 16px)', overflowY: 'auto',
                     background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px',
                     boxShadow: '0 20px 60px rgba(0,0,0,.7)', padding: '8px', animation: 'scaleIn .15s ease-out'
                 }}>
@@ -1050,6 +1064,7 @@
                         </button>
                     )}
                 </div>
+                </>
             );
         };
 
@@ -1080,9 +1095,11 @@
                     tabIndex={0}
                     aria-label={`${frame.source || 'Frame'} — ${frame.director || ''}`}
                     onClick={handleOpen}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpen(); } }}
+                    onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpen(); } }}
                     onMouseEnter={() => setHovered(true)}
                     onMouseLeave={() => setHovered(false)}
+                    onFocus={() => setHovered(true)}
+                    onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setHovered(false); }}
                     className="frame-card"
                     style={{
                         position: 'relative',
@@ -1990,14 +2007,18 @@
         // ═══════════════════════════════════════════════════════════════
         // BOARDS MODAL — manage moodboards, view a board, export
         // ═══════════════════════════════════════════════════════════════
+        // Scroll lock happens ONCE on mount (re-running it mid-stack would capture
+        // "hidden" as the value to restore and leave the page unscrollable).
         const useModalChrome = (onClose, escEnabled = true) => {
+            const live = useRef({ onClose, escEnabled });
+            live.current = { onClose, escEnabled };
             useEffect(() => {
-                const onKey = (e) => { if (e.key === 'Escape' && escEnabled) onClose(); };
+                const onKey = (e) => { if (e.key === 'Escape' && live.current.escEnabled) live.current.onClose(); };
                 document.addEventListener('keydown', onKey);
                 const prev = document.body.style.overflow;
                 document.body.style.overflow = 'hidden';
                 return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-            }, [onClose, escEnabled]);
+            }, []);
         };
 
         // Render a board as a single contact-sheet PNG (needs CORS on R2; falls back gracefully)
@@ -2017,6 +2038,7 @@
             ctx.fillStyle = '#777'; ctx.font = '13px "JetBrains Mono", monospace';
             ctx.fillText(`${items.length} frames · Berwaz · برواز`, PAD, 82);
             const load = (src) => new Promise((res, rej) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+            let failed = 0;
             for (let i = 0; i < items.length; i++) {
                 const f = items[i]; const r = Math.floor(i / cols), col = i % cols;
                 const x = PAD + col * (W + GAP), y = HEADER + PAD + r * (H + 34 + GAP);
@@ -2028,6 +2050,7 @@
                     ctx.save(); ctx.beginPath(); ctx.rect(x, y, W, H); ctx.clip();
                     ctx.drawImage(im, x + (W - dw) / 2, y + (H - dh) / 2, dw, dh); ctx.restore();
                 } catch {
+                    failed++;
                     ctx.fillStyle = '#333'; ctx.font = '12px Arial'; ctx.fillText('image unavailable', x + 16, y + H / 2);
                 }
                 ctx.fillStyle = '#eee'; ctx.font = '600 13px "Space Grotesk", Arial, sans-serif';
@@ -2035,7 +2058,34 @@
                 ctx.fillStyle = '#777'; ctx.font = '11px "JetBrains Mono", monospace';
                 ctx.fillText(`${f.director}  ·  #${f.id}`, x, y + H + 32);
             }
-            return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+            if (failed === items.length) throw new Error('cors'); // nothing rendered — don't ship a blank sheet
+            const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+            return { blob, failed };
+        };
+
+        // Board tile — module-level so re-renders of BoardsModal don't remount every GIF
+        const BoardTile = ({ f, i, isMobile, dragging, onDragStart, onDragEnd, onDrop, onOpen, onRemove }) => {
+            const [hover, setHover] = useState(false);
+            return (
+                <div
+                    draggable={!isMobile}
+                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); onDragStart(i); }}
+                    onDragEnd={onDragEnd}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                    onDrop={(e) => { e.preventDefault(); onDrop(i); }}
+                    onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+                    style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-tertiary)', aspectRatio: '16/9', cursor: isMobile ? 'default' : 'grab', outline: dragging ? '2px solid var(--accent)' : 'none', opacity: dragging ? .5 : 1 }}
+                >
+                    <img src={f.image} alt={f.source} loading="lazy" onClick={() => onOpen(f)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,.85))', pointerEvents: 'none' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source}</div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.6)' }}>{f.director}</div>
+                    </div>
+                    <button aria-label="Remove from board" onClick={() => onRemove(f.id)} style={{ position: 'absolute', top: '8px', right: '8px', width: '28px', height: '28px', minWidth: 0, minHeight: 0, padding: 0, borderRadius: '6px', border: 'none', background: 'rgba(0,0,0,.7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: hover || isMobile ? 1 : 0, transition: 'opacity .2s' }}>
+                        <Icons.X />
+                    </button>
+                </div>
+            );
         };
 
         const BoardsModal = ({ onClose, boardsApi, frames, initialBoardId, onOpenFrame, onToast, isMobile, escEnabled = true }) => {
@@ -2046,6 +2096,7 @@
             const [newName, setNewName] = useState('');
             const [busy, setBusy] = useState(null);
             const [dragIdx, setDragIdx] = useState(null);
+            const renameCancelled = useRef(false);
             useModalChrome(onClose, escEnabled);
 
             const active = boards.find(b => b.id === activeId) || null;
@@ -2065,39 +2116,16 @@
             const exportImage = async () => {
                 setBusy('image');
                 try {
-                    const blob = await renderBoardImage(active, frames);
+                    const { blob, failed } = await renderBoardImage(active, frames);
                     const url = URL.createObjectURL(blob); const a = document.createElement('a');
                     a.href = url; a.download = `berwaz_${active.name.replace(/[\/\\:*?"<>|#]/g, '_')}.png`;
                     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-                    onToast({ text: 'Board image downloaded' });
+                    onToast({ text: failed ? `Board image downloaded (${failed} frame${failed === 1 ? '' : 's'} unavailable)` : 'Board image downloaded' });
                 } catch (e) {
                     console.warn('Board export failed', e);
                     onToast({ text: 'Image export needs CORS on the image host — share link copied instead' });
                     await copy(encodeBoardLink(active));
                 } finally { setBusy(null); }
-            };
-
-            const Tile = ({ f, i }) => {
-                const [hover, setHover] = useState(false);
-                return (
-                    <div
-                        draggable={!isMobile}
-                        onDragStart={() => setDragIdx(i)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => { if (dragIdx !== null && dragIdx !== i) moveFrame(active.id, dragIdx, i); setDragIdx(null); }}
-                        onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-                        style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-tertiary)', aspectRatio: '16/9', cursor: 'grab', outline: dragIdx === i ? '2px solid var(--accent)' : 'none', opacity: dragIdx === i ? .5 : 1 }}
-                    >
-                        <img src={f.image} alt={f.source} loading="lazy" onClick={() => onOpenFrame(f)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
-                        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,.85))', pointerEvents: 'none' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source}</div>
-                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.6)' }}>{f.director}</div>
-                        </div>
-                        <button aria-label="Remove from board" onClick={() => removeFrame(active.id, f.id)} style={{ position: 'absolute', top: '8px', right: '8px', width: '28px', height: '28px', minWidth: 0, minHeight: 0, padding: 0, borderRadius: '6px', border: 'none', background: 'rgba(0,0,0,.7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: hover || isMobile ? 1 : 0, transition: 'opacity .2s' }}>
-                            <Icons.X />
-                        </button>
-                    </div>
-                );
             };
 
             const btn = (extra = {}) => ({ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 14px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', ...extra });
@@ -2114,8 +2142,11 @@
                                 {active ? (
                                     editing ? (
                                         <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={60}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') { renameBoard(active.id, nameDraft); setEditing(false); } if (e.key === 'Escape') setEditing(false); }}
-                                            onBlur={() => { renameBoard(active.id, nameDraft); setEditing(false); }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') { renameCancelled.current = true; renameBoard(active.id, nameDraft); setEditing(false); }
+                                                if (e.key === 'Escape') { e.stopPropagation(); renameCancelled.current = true; setEditing(false); }
+                                            }}
+                                            onBlur={() => { if (!renameCancelled.current) renameBoard(active.id, nameDraft); renameCancelled.current = false; setEditing(false); }}
                                             style={{ width: '100%', fontSize: '20px', fontWeight: 600, background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--text-primary)', padding: '6px 10px', outline: 'none' }} />
                                     ) : (
                                         <h2 onClick={() => { setNameDraft(active.name); setEditing(true); }} title="Rename" style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 600, margin: 0, cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2186,7 +2217,15 @@
                                         <>
                                             {!isMobile && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '10px' }}>Drag to reorder · click a frame to open it</div>}
                                             <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 150 : 220}px, 100%), 1fr))`, gap: '12px' }}>
-                                                {items.map((f, i) => <Tile key={f.id} f={f} i={i} />)}
+                                                {items.map((f, i) => (
+                                                    <BoardTile key={f.id} f={f} i={i} isMobile={isMobile}
+                                                        dragging={dragIdx === i}
+                                                        onDragStart={setDragIdx}
+                                                        onDragEnd={() => setDragIdx(null)}
+                                                        onDrop={(to) => { if (dragIdx !== null && dragIdx !== to) moveFrame(active.id, dragIdx, to); setDragIdx(null); }}
+                                                        onOpen={onOpenFrame}
+                                                        onRemove={(id) => removeFrame(active.id, id)} />
+                                                ))}
                                             </div>
                                         </>
                                     )}
@@ -2313,32 +2352,41 @@
                 resetView();
             }, [resetView]);
 
+            // Close every overlay so the filtered grid is actually visible
+            const closeAllOverlays = useCallback(() => {
+                setSelectedFrame(null);
+                setShowBoards(false);
+                setSharedBoard(null);
+                setPicker(null);
+                if (window.location.search.includes('board=')) window.history.replaceState(null, '', window.location.pathname);
+            }, []);
+
             const handleFilterByDirector = useCallback((director) => {
                 setFilterDirector(director);
                 setFilterSource(null);
-                setSelectedFrame(null);
+                closeAllOverlays();
                 resetView();
-            }, [resetView]);
+            }, [resetView, closeAllOverlays]);
 
             const handleFilterBySource = useCallback((source) => {
                 setFilterSource(source);
                 setFilterDirector(null);
-                setSelectedFrame(null);
+                closeAllOverlays();
                 resetView();
-            }, [resetView]);
+            }, [resetView, closeAllOverlays]);
 
             const handleFilterByTag = useCallback((tag) => {
                 setSearchQuery(tag);
-                setSelectedFrame(null);
+                closeAllOverlays();
                 resetView();
-            }, [resetView]);
+            }, [resetView, closeAllOverlays]);
 
             const handleCloseFrame = useCallback(() => setSelectedFrame(null), []);
             const handleCloseAbout = useCallback(() => setShowAbout(false), []);
             const handleCloseFeatured = useCallback(() => setShowFeatured(false), []);
 
             // ── Boards ──
-            const boardsApi = useBoards();
+            const boardsApi = useBoards(useMemo(() => new Set(frames.map(f => f.id)), [frames]));
             const [showBoards, setShowBoards] = useState(false);
             const [boardsInitialId, setBoardsInitialId] = useState(null);
             const [picker, setPicker] = useState(null);          // { frame, rect }

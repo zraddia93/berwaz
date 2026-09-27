@@ -125,8 +125,14 @@ def load_config():
 def save_config(config):
     """Save config to file"""
     try:
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        # Write to a temp file then atomically replace, so a crash mid-write
+        # can never leave a truncated config behind.
+        tmp = CONFIG_FILE + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, CONFIG_FILE)
         print(f"Config saved to {CONFIG_FILE}")
         return True
     except Exception as e:
