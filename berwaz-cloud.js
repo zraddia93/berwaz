@@ -50,7 +50,9 @@
   }
 
   const sb = window.supabase.createClient(cfg.url, cfg.anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
+    // implicit flow: a magic link must work in whichever browser/device opens the email,
+    // not only the one that requested it (PKCE would silently fail there)
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
   });
   Cloud._client = sb;
 
@@ -71,14 +73,20 @@
     emit();
   }
 
+  Cloud.lastError = null;
   Cloud.init = async () => {
+    // An expired / already-used link comes back as #error=...&error_description=...
+    try {
+      const hp = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      if (hp.get('error')) Cloud.lastError = (hp.get('error_description') || hp.get('error')).replace(/\+/g, ' ');
+    } catch {}
     const { data } = await sb.auth.getSession();
     await setSession(data.session);
     sb.auth.onAuthStateChange((_evt, session) => { setSession(session); });
     // Clean the magic-link hash/params out of the URL after the SDK has consumed them
     try {
       const u = new URL(window.location.href);
-      if (u.hash.includes('access_token') || u.searchParams.has('code')) {
+      if (u.hash.includes('access_token') || u.hash.includes('error=') || u.searchParams.has('code')) {
         u.hash = ''; u.searchParams.delete('code'); u.searchParams.delete('type');
         window.history.replaceState(null, '', u.toString());
       }

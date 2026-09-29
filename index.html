@@ -14,7 +14,7 @@
     <script src="https://unpkg.com/@babel/standalone@7.29.9/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
     <script src="cloud-config.js?v=050741fd"></script>
-    <script src="berwaz-cloud.js?v=fbb95742"></script>
+    <script src="berwaz-cloud.js?v=8cd81ff3"></script>
     <script src="frames-data.js?v=6098f85fe3"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -3133,6 +3133,12 @@
             const gate = useGate(auth, openSignIn);
             useEffect(() => { if (auth.user && signIn) setSignIn(null); }, [auth.user]);
             useEffect(() => { if (auth.ready) track('page_view', { path: window.location.pathname, signedIn: !!auth.user }); }, [auth.ready]);
+            useEffect(() => {
+                if (auth.ready && Cloud.lastError) {
+                    showToast({ text: /expired|invalid/i.test(Cloud.lastError) ? 'That sign-in link has expired or was already used — request a new one' : Cloud.lastError, action: { label: 'Sign in', onClick: () => { setToast(null); openSignIn(null); } } });
+                    Cloud.lastError = null;
+                }
+            }, [auth.ready]);
 
             // ── Boards ──
             const boardsApi = useBoards(useMemo(() => new Set(frames.map(f => f.id)), [frames]), auth.user, (t) => showToast(t));
