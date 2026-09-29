@@ -12,6 +12,9 @@
     <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.29.9/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+    <script src="cloud-config.js"></script>
+    <script src="berwaz-cloud.js"></script>
     <script src="frames-data.js?v=6098f85fe3"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -432,67 +435,127 @@
             try { localStorage.setItem(BOARDS_KEY, JSON.stringify(boards)); } catch {}
         };
 
-        const useBoards = (validIds) => {
-            const [boards, setBoards] = useState(() => {
+        // ═══════════════════════════════════════════════════════════════
+        // CLOUD (accounts) — window.BerwazCloud is provided by berwaz-cloud.js.
+        // When cloud-config.js is empty the site runs in local mode.
+        // ═══════════════════════════════════════════════════════════════
+        const Cloud = window.BerwazCloud || { enabled: false };
+        const useCloud = () => {
+            const [auth, setAuth] = useState({ user: null, profile: null, ready: !Cloud.enabled });
+            useEffect(() => {
+                if (!Cloud.enabled) return;
+                let alive = true;
+                Cloud.init().then(({ user, profile }) => { if (alive) setAuth({ user, profile, ready: true }); });
+                const off = Cloud.onAuth(({ user, profile }) => { if (alive) setAuth({ user, profile, ready: true }); });
+                return () => { alive = false; off(); };
+            }, []);
+            return auth;
+        };
+        const track = (name, props) => { try { Cloud.track && Cloud.track(name, props); } catch {} };
+
+        // Boards: local (this browser) when signed out; the account's boards when signed in.
+        // On first sign-in, local boards are merged into the account.
+        const useBoards = (validIds, user, notify) => {
+            const [localBoards, setLocalBoards] = useState(() => {
                 const b = loadBoards();
-                // Drop ids of frames that no longer exist in the library
                 return validIds ? b.map(x => ({ ...x, frames: x.frames.filter(id => validIds.has(id)) })) : b;
             });
+            const [cloudBoards, setCloudBoards] = useState([]);
+            const [cloudReady, setCloudReady] = useState(false);
+            const signedIn = !!user;
+            const boards = signedIn ? cloudBoards : localBoards;
             const boardsRef = useRef(boards);
             boardsRef.current = boards;
             const [lastBoardId, setLastBoardId] = useState(() => { try { return localStorage.getItem(BOARDS_KEY + '_last') || null; } catch { return null; } });
 
-            useEffect(() => { persistBoards(boards); }, [boards]);
+            useEffect(() => { persistBoards(localBoards); }, [localBoards]);
             useEffect(() => { try { lastBoardId ? localStorage.setItem(BOARDS_KEY + '_last', lastBoardId) : localStorage.removeItem(BOARDS_KEY + '_last'); } catch {} }, [lastBoardId]);
-
-            // Keep tabs in sync
             useEffect(() => {
-                const onStorage = (e) => { if (e.key === BOARDS_KEY) setBoards(loadBoards()); };
+                const onStorage = (e) => { if (e.key === BOARDS_KEY) setLocalBoards(loadBoards()); };
                 window.addEventListener('storage', onStorage);
                 return () => window.removeEventListener('storage', onStorage);
             }, []);
 
+            // Load (and merge) when the user signs in
+            useEffect(() => {
+                if (!signedIn) { setCloudBoards([]); setCloudReady(false); return; }
+                let alive = true;
+                (async () => {
+                    try {
+                        const merged = await Cloud.boards.mergeLocal(loadBoards());
+                        const list = await Cloud.boards.list();
+                        if (!alive) return;
+                        setCloudBoards(list.map(b => ({ ...b, cloudId: b.id, frames: validIds ? b.frames.filter(id => validIds.has(id)) : b.frames })));
+                        setCloudReady(true);
+                        if (merged.length && notify) notify({ text: `${merged.length} board${merged.length === 1 ? '' : 's'} from this browser saved to your account` });
+                    } catch (e) { console.warn('cloud boards failed', e); if (alive) setCloudReady(true); }
+                })();
+                return () => { alive = false; };
+            }, [signedIn, user && user.id]);
+
+            const fail = (e) => { console.warn(e); if (notify) notify({ text: 'Could not save to your account — check your connection' }); };
+            const setBoards = signedIn ? setCloudBoards : setLocalBoards;
+            // Server id for a board (created-this-session boards get it a moment after creation)
+            const cloudIdOf = (id) => { const b = boardsRef.current.find(x => x.id === id); return b ? (b.cloudId || b.id) : id; };
+
             const createBoard = useCallback((name, frames = []) => {
-                const b = { id: uid(), name: ((name || '').trim() || 'Untitled board').slice(0, 60), frames: [...new Set(frames)], createdAt: Date.now(), updatedAt: Date.now() };
+                const nm = ((name || '').trim() || 'Untitled board').slice(0, 60);
+                const b = { id: uid(), name: nm, frames: [...new Set(frames)], isPublic: false, createdAt: Date.now(), updatedAt: Date.now() };
                 setBoards(prev => [b, ...prev]);
                 setLastBoardId(b.id);
+                if (signedIn) {
+                    // Keep the client id stable (open views hold it); remember the server id alongside
+                    Cloud.boards.create({ name: nm, frames: b.frames }).then(real => {
+                        setCloudBoards(prev => prev.map(x => x.id === b.id ? { ...x, cloudId: real.id, createdAt: real.createdAt } : x));
+                    }).catch(fail);
+                }
                 return b;
-            }, []);
+            }, [signedIn]);
+
             const renameBoard = useCallback((id, name) => {
                 const n = (name || '').trim().slice(0, 60);
-                if (!n) return; // ignore empty / whitespace-only renames
+                if (!n) return;
                 setBoards(prev => prev.map(b => b.id === id ? { ...b, name: n, updatedAt: Date.now() } : b));
-            }, []);
+                if (signedIn) Cloud.boards.update(cloudIdOf(id), { name: n }).catch(fail);
+            }, [signedIn]);
+
             const deleteBoard = useCallback((id) => {
                 setBoards(prev => prev.filter(b => b.id !== id));
                 setLastBoardId(prev => prev === id ? null : prev);
-            }, []);
+                if (signedIn) Cloud.boards.remove(cloudIdOf(id)).catch(fail);
+            }, [signedIn]);
+
+            const setFrames = (id, nextFrames) => {
+                setBoards(prev => prev.map(b => b.id === id ? { ...b, frames: nextFrames, updatedAt: Date.now() } : b));
+                if (signedIn) Cloud.boards.update(cloudIdOf(id), { frames: nextFrames }).catch(fail);
+            };
             const toggleFrame = useCallback((boardId, frameId) => {
                 const cur = boardsRef.current.find(b => b.id === boardId);
-                const added = !(cur && cur.frames.includes(frameId));
-                setBoards(prev => prev.map(b => {
-                    if (b.id !== boardId) return b;
-                    const has = b.frames.includes(frameId);
-                    return { ...b, frames: has ? b.frames.filter(x => x !== frameId) : [...b.frames, frameId], updatedAt: Date.now() };
-                }));
+                if (!cur) return false;
+                const has = cur.frames.includes(frameId);
+                setFrames(boardId, has ? cur.frames.filter(x => x !== frameId) : [...cur.frames, frameId]);
                 setLastBoardId(boardId);
-                return added;
-            }, []);
+                return !has;
+            }, [signedIn]);
             const removeFrame = useCallback((boardId, frameId) => {
-                setBoards(prev => prev.map(b => b.id === boardId ? { ...b, frames: b.frames.filter(x => x !== frameId), updatedAt: Date.now() } : b));
-            }, []);
+                const cur = boardsRef.current.find(b => b.id === boardId); if (!cur) return;
+                setFrames(boardId, cur.frames.filter(x => x !== frameId));
+            }, [signedIn]);
             const moveFrame = useCallback((boardId, from, to) => {
-                setBoards(prev => prev.map(b => {
-                    if (b.id !== boardId) return b;
-                    const arr = [...b.frames]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
-                    return { ...b, frames: arr, updatedAt: Date.now() };
-                }));
-            }, []);
+                const cur = boardsRef.current.find(b => b.id === boardId); if (!cur) return;
+                const arr = [...cur.frames]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+                setFrames(boardId, arr);
+            }, [signedIn]);
+            const setPublic = useCallback((boardId, isPublic) => {
+                setBoards(prev => prev.map(b => b.id === boardId ? { ...b, isPublic, updatedAt: Date.now() } : b));
+                if (signedIn) Cloud.boards.update(cloudIdOf(boardId), { isPublic }).catch(fail);
+                track(isPublic ? 'board_public' : 'board_private');
+            }, [signedIn]);
 
             const savedIn = useCallback((frameId) => boards.filter(b => b.frames.includes(frameId)).map(b => b.id), [boards]);
             const totalSaved = useMemo(() => new Set(boards.flatMap(b => b.frames)).size, [boards]);
 
-            return { boards, lastBoardId, createBoard, renameBoard, deleteBoard, toggleFrame, removeFrame, moveFrame, savedIn, totalSaved };
+            return { boards, lastBoardId, createBoard, renameBoard, deleteBoard, toggleFrame, removeFrame, moveFrame, setPublic, savedIn, totalSaved, signedIn, cloudReady };
         };
 
         // Share links: ?board=<base64url of "name|id,id,id">  — compact, no backend needed
@@ -555,7 +618,7 @@
         const norm = (s) => (s || '').normalize('NFC').toLowerCase().trim();
 
         // Minimal Header
-        const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, filtersActive = 0, onShowAbout, onShowFeatured, onShowBoards, boardsCount, frameSize, setFrameSize, headerRef }) => {
+        const Header = ({ searchQuery, setSearchQuery, showFilters, setShowFilters, filtersActive = 0, onShowAbout, onShowFeatured, onShowBoards, boardsCount, frameSize, setFrameSize, headerRef, auth, onSignIn, onSignOut, onProfile, isMobile }) => {
             const [focused, setFocused] = useState(false);
             const [showMobileMenu, setShowMobileMenu] = useState(false);
 
@@ -783,6 +846,8 @@
                                 )}
                             </button>
 
+                            {auth && <AccountMenu auth={auth} onSignIn={onSignIn} onSignOut={onSignOut} onProfile={onProfile} isMobile={false} />}
+
                             {/* Filters Button */}
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
@@ -867,6 +932,18 @@
                                 <Icons.User />
                                 Directors
                             </a>
+                            {auth && Cloud.enabled && (
+                                <button
+                                    onClick={() => { setShowMobileMenu(false); auth.user ? onProfile() : onSignIn(); }}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                                        background: auth.user ? 'var(--bg-secondary)' : 'var(--accent)', color: auth.user ? 'var(--text-primary)' : '#000',
+                                        border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, width: '100%', textAlign: 'left'
+                                    }}
+                                >
+                                    {auth.user ? `Signed in as ${(auth.profile && (auth.profile.display_name || auth.profile.handle)) || auth.user.email}` : 'Sign in'}
+                                </button>
+                            )}
                             <button
                                 onClick={() => { onShowBoards(); setShowMobileMenu(false); }}
                                 style={{
@@ -1381,7 +1458,7 @@
         };
 
         // Frame Detail Modal
-        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, onFilterByCraft, similar, onOpenFrame, isSaved, onSave, onStudy, inCompare, onCompare, onColorSearch }) => {
+        const FrameModal = ({ frame, isMobile, onClose, onFilterByDirector, onFilterBySource, onFilterByTag, onFilterByCraft, similar, onOpenFrame, isSaved, onSave, onStudy, inCompare, onCompare, onColorSearch, gate }) => {
             const [promptCopied, setPromptCopied] = useState(false);
             const [promptExpanded, setPromptExpanded] = useState(false);
             const [imgLoaded, setImgLoaded] = useState(false);
@@ -1749,6 +1826,8 @@
                                         </div>
                                         <button
                                             onClick={async () => {
+                                                if (gate && !gate('prompt')) return;
+                                                track('prompt_copy', { id: frame.id });
                                                 try {
                                                     await navigator.clipboard.writeText(frame.prompt);
                                                 } catch (e) {
@@ -1796,10 +1875,14 @@
                                     }}>
                                         <div
                                             className={promptExpanded ? '' : 'prompt-clamp'}
-                                            style={{ transition: 'all 0.2s' }}
+                                            style={{ transition: 'all 0.2s', filter: (gate && Cloud.enabled && !Cloud.getUser()) ? 'blur(5px)' : 'none', userSelect: (gate && Cloud.enabled && !Cloud.getUser()) ? 'none' : 'text' }}
+                                            aria-hidden={gate && Cloud.enabled && !Cloud.getUser() ? 'true' : undefined}
                                         >
                                             {frame.prompt}
                                         </div>
+                                        {gate && Cloud.enabled && !Cloud.getUser() && (
+                                            <button onClick={() => gate('prompt')} style={{ marginTop: '8px', padding: '6px 12px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '100px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', minHeight: 0 }}>Sign in to read & copy</button>
+                                        )}
                                         <button
                                             onClick={() => setPromptExpanded(!promptExpanded)}
                                             style={{
@@ -1908,6 +1991,8 @@
                                 ) : (
                                     <button
                                         onClick={async () => {
+                                            if (gate && !gate('download')) return;
+                                            track('download', { id: frame.id });
                                             setDownloadMode('working');
                                             try {
                                                 const response = await fetch(frame.image);
@@ -2364,7 +2449,7 @@
                                         </h2>
                                     )
                                 ) : (
-                                    <h2 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 600, margin: 0 }}>My Boards <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 400 }}>· saved in this browser</span></h2>
+                                    <h2 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 600, margin: 0 }}>My Boards <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 400 }}>· {boardsApi.signedIn ? 'saved to your account' : (Cloud.enabled ? 'saved in this browser — sign in to keep them' : 'saved in this browser')}</span></h2>
                                 )}
                             </div>
                             <button onClick={onClose} aria-label="Close" style={btn({ padding: '8px 10px' })}><Icons.X /></button>
@@ -2415,6 +2500,14 @@
                                         <button onClick={shareLink} disabled={!items.length} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Link /> Copy share link</button>
                                         <button onClick={exportImage} disabled={!items.length || busy === 'image'} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Image /> {busy === 'image' ? 'Rendering…' : 'Download as image'}</button>
                                         <button onClick={copyPrompts} disabled={!items.length} style={btn({ opacity: items.length ? 1 : .5 })}><Icons.Copy /> Copy all AI prompts</button>
+                                        {boardsApi.signedIn && (
+                                            <button onClick={() => { const next = !active.isPublic; boardsApi.setPublic(active.id, next); onToast({ text: next ? 'Board is now public' : 'Board is private again' }); }} aria-pressed={!!active.isPublic} style={btn({ background: active.isPublic ? 'rgba(255,217,0,.12)' : 'var(--bg-tertiary)', color: active.isPublic ? 'var(--accent)' : 'var(--text-primary)', borderColor: active.isPublic ? 'rgba(255,217,0,.4)' : 'var(--border)' })}>
+                                                {active.isPublic ? '● Public' : '○ Private'}
+                                            </button>
+                                        )}
+                                        {boardsApi.signedIn && active.isPublic && (
+                                            <button onClick={async () => { const u = new URL('profile.html', window.location.href); u.searchParams.set('b', active.cloudId || active.id); if (await copy(u.toString())) onToast({ text: 'Public board link copied' }); }} style={btn()}><Icons.Link /> Copy public link</button>
+                                        )}
                                         {onCompareBoard && <button onClick={() => onCompareBoard(items.slice(0, COMPARE_MAX))} disabled={items.length < 2} style={btn({ opacity: items.length >= 2 ? 1 : .5 })} title={items.length > COMPARE_MAX ? `Compares the first ${COMPARE_MAX}` : ''}><Icons.Compare size={13} /> Compare{items.length > COMPARE_MAX ? ` first ${COMPARE_MAX}` : ''}</button>}
                                         <span style={{ flex: 1 }} />
                                         <button onClick={() => { if (confirm(`Delete “${active.name}”?`)) { deleteBoard(active.id); setActiveId(null); onToast({ text: 'Board deleted' }); } }} style={btn({ color: '#ff7b7b' })}><Icons.Trash /> Delete</button>
@@ -2753,6 +2846,108 @@
             );
         };
 
+        // ═══════════════════════════════════════════════════════════════
+        // ACCOUNTS UI — magic-link sign-in, account menu
+        // ═══════════════════════════════════════════════════════════════
+        const SignInModal = ({ onClose, reason, isMobile }) => {
+            const [email, setEmail] = useState('');
+            const [state, setState] = useState('idle'); // idle | sending | sent | error
+            const [err, setErr] = useState('');
+            const inputRef = useRef(null);
+            useModalChrome(onClose);
+            useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
+            const valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+            const submit = async (e) => {
+                if (e) e.preventDefault();
+                if (!valid || state === 'sending') return;
+                setState('sending'); setErr('');
+                try { await Cloud.signIn(email.trim()); setState('sent'); }
+                catch (ex) { setState('error'); setErr(ex && ex.message ? ex.message : 'Could not send the link. Try again in a minute.'); }
+            };
+            return (
+                <div onClick={onClose} role="dialog" aria-modal="true" aria-label="Sign in" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', animation: 'fadeIn .2s ease-out', backdropFilter: 'blur(6px)' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '16px', padding: isMobile ? '24px' : '32px', animation: 'scaleIn .2s ease-out' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+                            <img src="brand_mark.png" alt="" style={{ width: '32px' }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '18px', fontWeight: 600 }}>{state === 'sent' ? 'Check your email' : 'Sign in to Berwaz'}</div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>No password — we email you a link</div>
+                            </div>
+                            <button onClick={onClose} aria-label="Close" style={{ width: '32px', height: '32px', minHeight: 0, minWidth: 0, padding: 0, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.X /></button>
+                        </div>
+                        {reason && state !== 'sent' && (
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px' }}>{reason}</div>
+                        )}
+                        {state === 'sent' ? (
+                            <div>
+                                <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>We sent a sign-in link to <strong style={{ color: 'var(--text-primary)' }}>{email.trim()}</strong>. Open it on this device and you'll be signed in — the boards saved in this browser come with you.</p>
+                                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '12px' }}>Nothing arrived? Check spam, or <button onClick={() => setState('idle')} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: '12px', minHeight: 0 }}>try again</button>.</p>
+                            </div>
+                        ) : (
+                            <form onSubmit={submit}>
+                                <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Email</label>
+                                <input ref={inputRef} type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+                                    style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-tertiary)', border: `1px solid ${state === 'error' ? '#e54' : 'var(--border)'}`, borderRadius: '8px', color: 'var(--text-primary)', fontSize: '15px', outline: 'none', direction: 'ltr' }} />
+                                {state === 'error' && <div style={{ fontSize: '12px', color: '#ff7b7b', marginTop: '8px' }}>{err}</div>}
+                                <button type="submit" disabled={!valid || state === 'sending'} style={{ width: '100%', marginTop: '14px', padding: '13px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, cursor: valid ? 'pointer' : 'default', opacity: valid && state !== 'sending' ? 1 : .5 }}>
+                                    {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
+                                </button>
+                                <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '14px', lineHeight: 1.5 }}>By continuing you agree that Berwaz may store your email and the boards you create. Frames remain the property of their directors and rights-holders.</p>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const AccountMenu = ({ auth, onSignIn, onSignOut, onProfile, isMobile }) => {
+            const [open, setOpen] = useState(false);
+            const ref = useRef(null);
+            useEffect(() => {
+                if (!open) return;
+                const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+                document.addEventListener('mousedown', onDown); return () => document.removeEventListener('mousedown', onDown);
+            }, [open]);
+            if (!Cloud.enabled) return null;
+            if (!auth.user) {
+                return (
+                    <button onClick={onSignIn} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--accent)', color: '#000', border: '1px solid var(--accent)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        Sign in
+                    </button>
+                );
+            }
+            const name = (auth.profile && (auth.profile.display_name || auth.profile.handle)) || (auth.user.email || '').split('@')[0];
+            const initial = (name || '?').trim()[0].toUpperCase();
+            return (
+                <div ref={ref} style={{ position: 'relative' }}>
+                    <button onClick={() => setOpen(v => !v)} aria-haspopup="true" aria-expanded={open} title={auth.user.email} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px 6px 6px', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '100px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
+                        <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--accent)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px' }}>{initial}</span>
+                        {!isMobile && <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>}
+                    </button>
+                    {open && (
+                        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', minWidth: '200px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', padding: '6px', zIndex: 210, boxShadow: '0 12px 40px rgba(0,0,0,.6)', direction: 'ltr' }}>
+                            <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{auth.user.email}</div>
+                            </div>
+                            {[['My profile', () => { setOpen(false); onProfile(); }], ['Sign out', () => { setOpen(false); onSignOut(); }]].map(([label, fn]) => (
+                                <button key={label} onClick={fn} style={{ width: '100%', textAlign: 'left', padding: '9px 10px', background: 'none', border: 'none', color: label === 'Sign out' ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '13px', cursor: 'pointer', borderRadius: '6px', minHeight: 0 }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'} onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>{label}</button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Gate: returns true if allowed; otherwise opens sign-in with a reason
+        const useGate = (auth, openSignIn) => useCallback((what) => {
+            if (!Cloud.enabled || auth.user) return true;
+            openSignIn(what === 'download' ? 'Sign in to download frames. It takes ten seconds — we email you a link.' : 'Sign in to copy AI prompts. It takes ten seconds — we email you a link.');
+            track('gate_hit', { what });
+            return false;
+        }, [auth.user, openSignIn]);
+
         // Main App
         const App = () => {
             // Transform embedded data to include full image path and shuffle on load
@@ -2901,6 +3096,7 @@
             }, [resetView, closeAllOverlays]);
 
             const handleCloseFrame = useCallback(() => setSelectedFrame(null), []);
+
             const handleCloseAbout = useCallback(() => setShowAbout(false), []);
             const handleCloseFeatured = useCallback(() => setShowFeatured(false), []);
 
@@ -2930,8 +3126,16 @@
                 }
             }, []);
 
+            // ── Accounts ──
+            const auth = useCloud();
+            const [signIn, setSignIn] = useState(null); // null | { reason }
+            const openSignIn = useCallback((reason) => setSignIn({ reason: reason || null }), []);
+            const gate = useGate(auth, openSignIn);
+            useEffect(() => { if (auth.user && signIn) setSignIn(null); }, [auth.user]);
+            useEffect(() => { if (auth.ready) track('page_view', { path: window.location.pathname, signedIn: !!auth.user }); }, [auth.ready]);
+
             // ── Boards ──
-            const boardsApi = useBoards(useMemo(() => new Set(frames.map(f => f.id)), [frames]));
+            const boardsApi = useBoards(useMemo(() => new Set(frames.map(f => f.id)), [frames]), auth.user, (t) => showToast(t));
             const [showBoards, setShowBoards] = useState(false);
             const [boardsInitialId, setBoardsInitialId] = useState(null);
             const [picker, setPicker] = useState(null);          // { frame, rect }
@@ -3091,10 +3295,20 @@
                 return () => io.disconnect();
             }, [hasMore, filteredFrames.length]);
 
+            // ── Analytics (declared last so every state above exists) ──
+            useEffect(() => { if (selectedFrame) track('frame_open', { id: selectedFrame.id, source: selectedFrame.source }); }, [selectedFrame && selectedFrame.id]);
+            useEffect(() => { if (study) track('study_open', { n: study.frames.length, title: study.title }); }, [!!study]);
+            useEffect(() => { if (showCompare) track('compare_open', { n: compareIds.length }); }, [showCompare]);
+
             return (
                 <div style={{ minHeight: '100vh' }}>
                     <Header
                         headerRef={headerRef}
+                        auth={auth}
+                        onSignIn={() => openSignIn(null)}
+                        onSignOut={() => { Cloud.signOut(); showToast({ text: 'Signed out' }); }}
+                        onProfile={() => { window.location.href = 'profile.html' + (auth.profile && auth.profile.handle ? '?u=' + encodeURIComponent(auth.profile.handle) : ''); }}
+                        isMobile={isMobile}
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}
                         showFilters={showFilters}
@@ -3314,6 +3528,7 @@
                             inCompare={compareSet.has(selectedFrame.id)}
                             onCompare={toggleCompare}
                             onColorSearch={(c) => { searchByColor(c); closeAllOverlays(); }}
+                            gate={gate}
                             onStudy={() => {
                                 // study this frame's project in shot order, starting here
                                 const seq = sequenceOf(frames, selectedFrame.source);
@@ -3390,6 +3605,7 @@
                     {picker && (
                         <BoardPicker frame={picker.frame} boardsApi={boardsApi} onDone={handlePickerDone} anchorRect={isMobile ? null : picker.rect} />
                     )}
+                    {signIn && <SignInModal onClose={() => setSignIn(null)} reason={signIn.reason} isMobile={isMobile} />}
                     <Toast toast={toast} />
 
                     {/* About Modal */}

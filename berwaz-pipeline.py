@@ -76,7 +76,7 @@ def stamp_data_version():
         h = hashlib.md5(open(DATA, 'rb').read()).hexdigest()[:10]
     except Exception:
         return
-    for page in ('index.html', os.path.join('directors', 'index.html')):
+    for page in ('index.html', 'profile.html', os.path.join('directors', 'index.html')):
         path = os.path.join(ROOT, page)
         if not os.path.exists(path):
             continue

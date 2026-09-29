@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>Profile — برواز</title>
+    <link rel="icon" type="image/png" href="brand_mark.png">
+    <link rel="preconnect" href="https://pub-b8befece66bc4203bab663b2ed292cd4.r2.dev" crossorigin>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.9/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+    <script src="cloud-config.js"></script>
+    <script src="berwaz-cloud.js"></script>
+    <script src="frames-data.js?v=6098f85fe3"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        @font-face { font-family: 'HT Moshreq Pro'; src: url('HTMoshreqPro-Bold.otf') format('opentype'); font-weight: 700; font-display: swap; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #000000; --bg-secondary: #0a0a0a; --bg-tertiary: #111111;
+            --text-primary: #ffd900; --text-secondary: #cca800; --text-tertiary: #997e00;
+            --accent: #ffd900; --accent-dim: rgba(255,217,0,0.1);
+            --border: rgba(255,217,0,0.12); --border-hover: rgba(255,217,0,0.25);
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+        input, textarea, select, button { font-family: inherit; }
+        a { color: inherit; }
+        .shimmer { background: linear-gradient(90deg, #141414 25%, #1e1e1e 50%, #141414 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
+        .btn:hover { border-color: var(--accent); }
+        .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+        .field { width: 100%; padding: 11px 13px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; outline: none; }
+        .field:focus { border-color: var(--accent); }
+        label.lbl { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-tertiary); margin: 14px 0 6px; }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: var(--bg-secondary); } ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <!-- Password Gate -->
+    <div id="password-gate" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0a0a;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:'Space Grotesk',sans-serif;">
+        <img src="brand_mark.png" alt="Berwaz" style="width:80px;margin-bottom:32px;opacity:0.8;">
+        <p style="color:#888;font-size:14px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px 0;">Work in Progress</p>
+        <p style="color:#555;font-size:13px;margin:0 0 32px 0;">This platform is currently under development. Coming soon.</p>
+        <form id="password-form" style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+            <input id="password-input" type="password" placeholder="Enter password" autocomplete="off" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:12px 24px;border-radius:8px;font-size:16px;width:260px;text-align:center;outline:none;font-family:'Space Grotesk',sans-serif;" onfocus="this.style.borderColor='#ffd900'" onblur="this.style.borderColor='#333'">
+            <button type="submit" style="background:#ffd900;color:#0a0a0a;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Enter</button>
+            <p id="password-error" style="color:#ff4444;font-size:13px;margin:0;display:none;">Incorrect password</p>
+        </form>
+    </div>
+
+    <div id="root" style="display:none;"></div>
+
+    <script>
+        (function() {
+            if (sessionStorage.getItem('berwaz_auth') === 'true') {
+                document.getElementById('password-gate').style.display = 'none';
+                document.getElementById('root').style.display = '';
+            }
+            document.getElementById('password-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (document.getElementById('password-input').value === 'berwaz93') {
+                    sessionStorage.setItem('berwaz_auth', 'true');
+                    document.getElementById('password-gate').style.display = 'none';
+                    document.getElementById('root').style.display = '';
+                } else {
+                    document.getElementById('password-error').style.display = 'block';
+                    document.getElementById('password-input').value = '';
+                }
+            });
+        })();
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const Cloud = window.BerwazCloud || { enabled: false };
+        const CONTENT_PATH = 'https://pub-b8befece66bc4203bab663b2ed292cd4.r2.dev/content/';
+        const encodePath = (p) => String(p).split('/').map(encodeURIComponent).join('/');
+        const FRAMES = (typeof FRAMES_DATA !== 'undefined') ? FRAMES_DATA : [];
+        const BY_ID = Object.fromEntries(FRAMES.map(f => [f.id, f]));
+        const url = (f) => CONTENT_PATH + encodePath(f.file);
+        const ROLES = [['filmmaker', 'Filmmaker'], ['student', 'Student'], ['researcher', 'Researcher'], ['agency', 'Agency / Brand'], ['other', 'Other']];
+
+        const Header = ({ auth }) => (
+            <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(0,0,0,.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', direction: 'rtl' }}>
+                <a href="index.html" title="Back to the library" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                    <img src="brand_mark.png" alt="" style={{ width: '32px' }} />
+                    <span style={{ fontFamily: "'HT Moshreq Pro', sans-serif", fontSize: '24px', fontWeight: 700, color: 'var(--accent)' }}>برواز</span>
+                </a>
+                <div style={{ display: 'flex', gap: '10px', direction: 'ltr' }}>
+                    <a href="index.html" className="btn">← Library</a>
+                    {auth && auth.user && <button className="btn" onClick={() => Cloud.signOut().then(() => { window.location.href = 'index.html'; })}>Sign out</button>}
+                </div>
+            </header>
+        );
+
+        const Frame = ({ f, size }) => {
+            const [ok, setOk] = useState(null);
+            return (
+                <a href={`index.html?source=${encodeURIComponent(f.source)}`} title={`${f.source} — ${f.director}`} style={{ position: 'relative', display: 'block', aspectRatio: '16/9', borderRadius: '6px', overflow: 'hidden', background: 'var(--bg-tertiary)' }}>
+                    {ok === null && <div className="shimmer" style={{ position: 'absolute', inset: 0 }} />}
+                    <img src={url(f)} alt={f.source} loading="lazy" onLoad={() => setOk(true)} onError={() => setOk(false)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: ok ? 1 : 0, transition: 'opacity .3s' }} />
+                    {size !== 'sm' && <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,.85))' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.source}</div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.6)' }}>{f.director}</div>
+                    </div>}
+                </a>
+            );
+        };
+
+        const BoardCard = ({ b, ownerHandle }) => {
+            const items = b.frames.map(id => BY_ID[id]).filter(Boolean);
+            const covers = items.slice(0, 4);
+            return (
+                <a href={`profile.html?b=${encodeURIComponent(b.id)}`} style={{ display: 'block', textDecoration: 'none', borderRadius: '12px', overflow: 'hidden', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '2px', aspectRatio: '16/10', background: '#000' }}>
+                        {[0, 1, 2, 3].map(i => covers[i] ? <img key={i} src={url(covers[i])} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div key={i} style={{ background: 'var(--bg-tertiary)' }} />)}
+                    </div>
+                    <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</div>
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>{items.length}</span>
+                    </div>
+                </a>
+            );
+        };
+
+        // ── Public board page ──
+        const BoardPage = ({ id, auth }) => {
+            const [data, setData] = useState(undefined);
+            useEffect(() => { Cloud.getPublicBoard(id).then(setData); }, [id]);
+            if (data === undefined) return <Loading />;
+            if (!data) return <Empty title="This board is private or doesn't exist" sub="Ask the owner to make it public, or open the library." />;
+            const items = data.board.frames.map(fid => BY_ID[fid]).filter(Boolean);
+            return (
+                <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 24px 80px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '6px' }}>Public board</div>
+                    <h1 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 700, lineHeight: 1.1 }}>{data.board.name}</h1>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+                        {items.length} frame{items.length === 1 ? '' : 's'}{data.owner && <> · by <a href={`profile.html?u=${encodeURIComponent(data.owner.handle)}`} style={{ color: 'var(--accent)' }}>{data.owner.display_name || data.owner.handle}</a></>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '18px', flexWrap: 'wrap' }}>
+                        <a className="btn btn-primary" href={`index.html?board=${encodeURIComponent(btoa(unescape(encodeURIComponent(`${data.board.name}|${data.board.frames.join(',')}`))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''))}`}>Save a copy to my boards</a>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))', gap: '12px', marginTop: '28px' }}>
+                        {items.map(f => <Frame key={f.id} f={f} />)}
+                    </div>
+                </main>
+            );
+        };
+
+        // ── Profile page (public view + owner editing) ──
+        const ProfilePage = ({ handle, auth }) => {
+            const isOwnerView = !handle || (auth.profile && auth.profile.handle === handle);
+            const [data, setData] = useState(undefined);
+            const [editing, setEditing] = useState(false);
+            const [draft, setDraft] = useState(null);
+            const [saving, setSaving] = useState(false);
+            const [err, setErr] = useState('');
+
+            useEffect(() => {
+                if (!handle) { setData(auth.profile ? { profile: auth.profile, boards: null } : null); return; }
+                Cloud.getPublicProfile(handle).then(setData);
+            }, [handle, auth.profile && auth.profile.id]);
+
+            if (!auth.ready) return <Loading />;
+            if (!handle && !auth.user) return <Empty title="Sign in to see your profile" sub="Open the library and use Sign in." cta={['Go to library', 'index.html']} />;
+            if (data === undefined) return <Loading />;
+            if (!data) return <Empty title="Profile not found" sub="This profile is private or the handle doesn't exist." />;
+
+            const p = isOwnerView && auth.profile ? auth.profile : data.profile;
+            const startEdit = () => { setDraft({ display_name: p.display_name || '', handle: p.handle || '', role: p.role || '', bio: p.bio || '', website: p.website || '', is_public: p.is_public !== false }); setErr(''); setEditing(true); };
+            const save = async () => {
+                setSaving(true); setErr('');
+                try {
+                    if (!/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/.test(draft.handle)) throw new Error('Handle: 3–24 characters, lowercase letters, numbers and hyphens.');
+                    await Cloud.updateProfile(draft); setEditing(false);
+                    const u = new URL(window.location.href); u.searchParams.set('u', draft.handle); window.history.replaceState(null, '', u.toString());
+                } catch (e) { setErr(/duplicate|unique/i.test(e.message || '') ? 'That handle is taken.' : (e.message || 'Could not save.')); }
+                setSaving(false);
+            };
+            const initial = ((p.display_name || p.handle || '?').trim()[0] || '?').toUpperCase();
+            const role = ROLES.find(r => r[0] === p.role);
+
+            return (
+                <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 24px 80px' }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        <div style={{ width: '84px', height: '84px', borderRadius: '50%', background: 'var(--accent)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '34px', fontWeight: 700, flexShrink: 0 }}>{initial}</div>
+                        <div style={{ flex: 1, minWidth: '240px' }}>
+                            {editing ? (
+                                <div style={{ maxWidth: '520px' }}>
+                                    <label className="lbl">Display name</label><input className="field" value={draft.display_name} onChange={(e) => setDraft({ ...draft, display_name: e.target.value })} maxLength={60} />
+                                    <label className="lbl">Handle <span style={{ textTransform: 'none', letterSpacing: 0 }}>· berwaz/profile?u=<b>{draft.handle || '…'}</b></span></label><input className="field" value={draft.handle} onChange={(e) => setDraft({ ...draft, handle: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} maxLength={24} style={{ direction: 'ltr' }} />
+                                    <label className="lbl">I am a</label>
+                                    <select className="field" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}><option value="">—</option>{ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                                    <label className="lbl">Bio</label><textarea className="field" rows={3} value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} maxLength={280} />
+                                    <label className="lbl">Website</label><input className="field" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })} placeholder="https://" style={{ direction: 'ltr' }} />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px', fontSize: '13px', cursor: 'pointer' }}><input type="checkbox" checked={draft.is_public} onChange={(e) => setDraft({ ...draft, is_public: e.target.checked })} /> Public profile (your public boards are listed here)</label>
+                                    {err && <div style={{ color: '#ff7b7b', fontSize: '12px', marginTop: '10px' }}>{err}</div>}
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
+                                        <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+                                        <button className="btn" onClick={() => setEditing(false)}>Cancel</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <h1 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 700, lineHeight: 1.1 }}>{p.display_name || p.handle}</h1>
+                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>@{p.handle}</span>
+                                        {role && <span style={{ padding: '3px 10px', borderRadius: '100px', background: 'var(--accent-dim)', color: 'var(--accent)', fontSize: '11px', fontWeight: 600 }}>{role[1]}</span>}
+                                        {p.website && <a href={/^https?:/.test(p.website) ? p.website : 'https://' + p.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{p.website.replace(/^https?:\/\//, '')}</a>}
+                                    </div>
+                                    {p.bio && <p style={{ fontSize: '15px', lineHeight: 1.6, color: 'var(--text-secondary)', marginTop: '14px', maxWidth: '640px' }}>{p.bio}</p>}
+                                    {isOwnerView && auth.user && (
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '18px', flexWrap: 'wrap' }}>
+                                            <button className="btn" onClick={startEdit}>Edit profile</button>
+                                            {p.is_public === false && <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', alignSelf: 'center' }}>Your profile is private</span>}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <PublicBoards ownerId={p.id} ownerHandle={p.handle} isOwner={isOwnerView && !!auth.user} preloaded={data.boards} />
+                </main>
+            );
+        };
+
+        const PublicBoards = ({ ownerId, ownerHandle, isOwner, preloaded }) => {
+            const [boards, setBoards] = useState(preloaded);
+            useEffect(() => {
+                if (preloaded) { setBoards(preloaded); return; }
+                // owner view without a handle param: fetch own public boards through the public path
+                if (ownerHandle) Cloud.getPublicProfile(ownerHandle).then(d => setBoards(d ? d.boards : []));
+            }, [ownerHandle, preloaded]);
+            return (
+                <section style={{ marginTop: '44px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '16px' }}>
+                        <h2 style={{ fontSize: '14px', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0 }}>Public boards</h2>
+                        {boards && <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: "'JetBrains Mono', monospace" }}>{boards.length}</span>}
+                    </div>
+                    {!boards ? <Loading inline /> : boards.length === 0 ? (
+                        <div style={{ padding: '40px 20px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                            {isOwner ? <>No public boards yet. Open <a href="index.html" style={{ color: 'var(--accent)' }}>the library</a> → Boards → a board → <b>Public</b>.</> : 'No public boards yet.'}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: '16px' }}>
+                            {boards.map(b => <BoardCard key={b.id} b={b} ownerHandle={ownerHandle} />)}
+                        </div>
+                    )}
+                </section>
+            );
+        };
+
+        const Loading = ({ inline }) => <div style={{ padding: inline ? '20px 0' : '80px 24px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>Loading…</div>;
+        const Empty = ({ title, sub, cta }) => (
+            <main style={{ maxWidth: '640px', margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: '40px', opacity: .25, marginBottom: '12px' }}>◇</div>
+                <h1 style={{ fontSize: '22px', fontWeight: 600 }}>{title}</h1>
+                {sub && <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>{sub}</p>}
+                <a className="btn btn-primary" href={cta ? cta[1] : 'index.html'} style={{ marginTop: '22px' }}>{cta ? cta[0] : 'Open the library'}</a>
+            </main>
+        );
+
+        const App = () => {
+            const [auth, setAuth] = useState({ user: null, profile: null, ready: !Cloud.enabled });
+            useEffect(() => {
+                if (!Cloud.enabled) return;
+                Cloud.init().then(({ user, profile }) => setAuth({ user, profile, ready: true }));
+                return Cloud.onAuth(({ user, profile }) => setAuth({ user, profile, ready: true }));
+            }, []);
+            const params = new URLSearchParams(window.location.search);
+            const handle = (params.get('u') || '').toLowerCase() || null;
+            const boardId = params.get('b');
+            useEffect(() => { document.title = (handle ? `@${handle}` : boardId ? 'Board' : 'Profile') + ' — برواز'; }, [handle, boardId]);
+            return (
+                <div>
+                    <Header auth={auth} />
+                    {!Cloud.enabled
+                        ? <Empty title="Accounts aren't enabled on this site yet" sub="Profiles and public boards switch on once cloud-config.js is filled in." />
+                        : boardId ? <BoardPage id={boardId} auth={auth} /> : <ProfilePage handle={handle} auth={auth} />}
+                </div>
+            );
+        };
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
