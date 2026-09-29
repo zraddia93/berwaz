@@ -82,6 +82,12 @@ def stamp_data_version():
             continue
         html = open(path, encoding='utf-8').read()
         new = _re.sub(r'(src=")((?:\.\./)?frames-data\.js)(?:\?v=[0-9a-f]+)?(")', lambda m: m.group(1) + m.group(2) + '?v=' + h + m.group(3), html)
+        # same for the cloud files, so config changes are never stuck in a browser cache
+        for jsname in ('cloud-config.js', 'berwaz-cloud.js'):
+            jp = os.path.join(ROOT, jsname)
+            if os.path.exists(jp):
+                hj = hashlib.md5(open(jp, 'rb').read()).hexdigest()[:8]
+                new = _re.sub(r'(src=")(' + jsname.replace('.', '\\.') + r')(?:\?v=[0-9a-f]+)?(")', lambda m, hj=hj: m.group(1) + m.group(2) + '?v=' + hj + m.group(3), new)
         if new != html:
             open(path, 'w', encoding='utf-8').write(new)
 
